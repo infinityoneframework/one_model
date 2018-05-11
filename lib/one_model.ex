@@ -2,8 +2,88 @@ defmodule OneModel do
   @moduledoc """
   Model abstraction for InfinityOne.
 
-  """
+  Provides an alternative solution to the fat Phoenix Context model, allowing
+  the user to create a one to one context mapping between a model (singular context)
+  and its schema.
 
+  ## Examples
+
+  For example, you may organize your models/schemas like:
+
+      lib/my_app/models
+        blog.ex
+        post.ex
+        schema
+          blog_schema.ex
+          post_schema.exe
+
+  And have the following files:
+
+      # post.ex
+      defmodule MyApp.Post do
+        use InfinityOne.Model, schema: MyApp.Post.Schema
+
+        @doc ~s(
+          Example to show overriding default behaviour
+        )
+        def delete(schema_or_changeset) do
+          schema_or_changeset
+          |> pre_process_delete()
+          |> super()
+        end
+
+        defp pre_process_delete(schema) do
+          # do something with schema before delete
+          schema
+        end
+      end
+
+      # schema/post_schema.ex
+      defmodule MyApp.Post.Schema do
+        use Ecto.Schema
+        import Ecto.Changeset
+
+        schema "posts" do
+          field :title, :string
+          field :body, :string
+          belongs_to :blog, MyApp.Blog.Schema
+        end
+
+        def changeset(struct, params) do
+          struct
+          |> cast(params, [:tile, :body, :blog_id])
+          |> validate_required([:title, :body, :blog_id])
+        end
+      end
+
+      MyApp.Post.create(%{title: "My Title", body: "Some Body", blog_id: blog.id})
+      {:ok, %MyApp.Post.Schema{id: "...", title: "...", ...}}
+
+      MyApp.Post.list_by(blog_id: blog.id, preload: [:blog])
+      [%MyApp.Post.Schema{blog: %MyApp.Blog.Schema{...}, ...}, ...]
+
+  The above example provides the following functions in the `MyApp.Post`:
+
+  * delete/1
+  * delete!/1
+  * update/1
+  * update/2
+  * update!/1
+  * update!/2
+  * create/1
+  * create!/1
+  * get_by/1
+  * get_by!/1
+  * get/2
+  * get!/2
+  * list/0
+  * change/2
+  * change/1
+  * delete_all/0
+  * preload_schema/2
+  * count/0
+  * count_by/1
+  """
   defmacro __using__(opts) do
     quote do
       opts = unquote(opts)
@@ -275,6 +355,33 @@ defmodule OneModel do
       end
 
       @doc """
+      Get the number of records in the #{@schema} schema.
+      """
+      @spec count() :: integer
+      def count do
+        @repo.one(from s in @schema, select: count(s.id))
+      end
+
+      @doc """
+      Count the number of records for the #{@schema} schema.
+
+      Counts the number of records matching the provided clauses.
+
+      ## Example
+
+          MyModel.count_by(published: true, expired: false)
+      """
+      @spec count_by(Keyword.t() | map()) :: integer
+      def count_by(clauses) do
+        clauses
+        |> Enum.reduce(@schema, fn {k, v}, query ->
+          where(query, [b], field(b, ^k) == ^v)
+        end)
+        |> select(count(:id))
+        |> @repo.one
+      end
+
+      @doc """
       Preload a #{@schema}.
       """
       def preload_schema(schema, preload) do
@@ -285,7 +392,7 @@ defmodule OneModel do
         delete: 1, delete!: 1, update: 1, update: 2, update!: 1,
         update!: 2, create: 1, create!: 1, get_by: 1, get_by!: 1,
         get: 2, get!: 2, list: 0, change: 2, change: 1, delete_all: 0,
-        preload_schema: 2
+        preload_schema: 2, count: 0, count_by: 1
       ]
     end
   end
