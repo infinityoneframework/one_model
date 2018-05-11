@@ -377,7 +377,7 @@ defmodule OneModel do
         |> Enum.reduce(@schema, fn {k, v}, query ->
           where(query, [b], field(b, ^k) == ^v)
         end)
-        |> select(count(:id))
+        |> select([b], count(b.id))
         |> @repo.one
       end
 
