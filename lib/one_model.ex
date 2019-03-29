@@ -90,32 +90,32 @@ defmodule OneModel do
       @repo opts[:repo] || InfinityOne.Repo
       @schema opts[:schema] || raise(":schema option required")
 
-      @type id :: integer | String.t
+      @type id :: integer | String.t()
 
-      import Ecto.Query, warn: false
+      import Ecto.Query, except: [update: 2], warn: false
 
       @doc """
       Create a default #{@schema} struct.
       """
-      @spec new() :: Struct.t
+      @spec new() :: Struct.t()
       def new, do: %@schema{}
 
       @doc """
       Create a #{@schema} with the provided options.
       """
-      @spec new(Keyword.t) :: Struct.t
+      @spec new(Keyword.t()) :: Struct.t()
       def new(opts), do: struct(new(), opts)
 
       @doc """
       Return the schema module.
       """
-      @spec schema() :: Module.t
+      @spec schema() :: Module.t()
       def schema, do: @schema
 
       @doc """
       Returns an `%Ecto.Changeset{}` for tracking #{@schema} changes.
       """
-      @spec change(Struct.t, Keyword.t) :: Ecto.Changeset.t
+      @spec change(Struct.t(), Keyword.t()) :: Ecto.Changeset.t()
       def change(%@schema{} = schema, attrs) do
         @schema.changeset(schema, attrs)
       end
@@ -123,16 +123,15 @@ defmodule OneModel do
       @doc """
       Returns an `%Ecto.Changeset{}` for tracking #{@schema} changes.
       """
-      @spec change(Struct.t) :: Ecto.Changeset.t
+      @spec change(Struct.t()) :: Ecto.Changeset.t()
       def change(%@schema{} = schema) do
         @schema.changeset(schema)
       end
 
-      @spec change(Keyword.t) :: Ecto.Changeset.t
+      @spec change(Keyword.t()) :: Ecto.Changeset.t()
       def change(attrs) when is_map(attrs) or is_list(attrs) do
         @schema.changeset(%@schema{}, attrs)
       end
-
 
       @doc """
       Get a list of #{@schema}'s.
@@ -141,7 +140,7 @@ defmodule OneModel do
 
       * `preload: list`
       """
-      @spec list(Keword.t) :: [Struct.t]
+      @spec list(Keword.t()) :: [Struct.t()]
       def list(opts \\ []) do
         if preload = opts[:preload] do
           @schema
@@ -149,7 +148,7 @@ defmodule OneModel do
           |> order_by(asc: :inserted_at)
           |> @repo.all
         else
-          @repo.all @schema
+          @repo.all(@schema)
         end
       end
 
@@ -164,7 +163,7 @@ defmodule OneModel do
 
           #{@schema}.list_by field1: value1, field2: field2, preload: [:association]
       """
-      @spec list_by(Keyword.t) :: List.t
+      @spec list_by(Keyword.t()) :: List.t()
       def list_by(opts) do
         {preload, opts} = Keyword.pop(opts, :preload, [])
 
@@ -184,25 +183,25 @@ defmodule OneModel do
 
       Pass a list of preloads with the `:preload` key.
       """
-      @spec get(id, Keyword.t) :: Struct.t
+      @spec get(id, Keyword.t()) :: Struct.t()
       def get(id, opts \\ []) do
         if preload = opts[:preload] do
-          @repo.one from s in @schema, where: s.id == ^id, preload: ^preload
+          @repo.one(from(s in @schema, where: s.id == ^id, preload: ^preload))
         else
-          @repo.get @schema, id, opts
+          @repo.get(@schema, id, opts)
         end
       end
 
-      @spec get!(id, Keyword.t) :: Struct.t
+      @spec get!(id, Keyword.t()) :: Struct.t()
       def get!(id, opts \\ []) do
         if preload = opts[:preload] do
-          @repo.one! from s in @schema, where: s.id == ^id, preload: ^preload
+          @repo.one!(from(s in @schema, where: s.id == ^id, preload: ^preload))
         else
-          @repo.get! @schema, id, opts
+          @repo.get!(@schema, id, opts)
         end
       end
 
-      @spec get_by(Keyword.t) :: Struct.t
+      @spec get_by(Keyword.t()) :: Struct.t()
       def get_by(opts) do
         if preload = opts[:preload] do
           # TODO: Fix this with a single query
@@ -210,118 +209,125 @@ defmodule OneModel do
           |> @repo.get_by(Keyword.delete(opts, :preload))
           |> @repo.preload(preload)
         else
-          @repo.get_by @schema, opts
+          @repo.get_by(@schema, opts)
         end
       end
 
-      @spec get_by!(Keyword.t) :: Struct.t
+      @spec get_by!(Keyword.t()) :: Struct.t()
       def get_by!(opts) do
         if preload = opts[:preload] do
           @schema
           |> @repo.get_by(Keyword.delete(opts, :preload))
           |> @repo.preload(preload)
         else
-          @repo.get_by! @schema, opts
+          @repo.get_by!(@schema, opts)
         end
       end
 
-      @spec create(Ecto.Changeset.t | Keyword.t | Map.t) :: {:ok, Struct.t} |
-                                                            {:error, Ecto.Changeset.t}
+      @spec create(Ecto.Changeset.t() | Keyword.t() | Map.t()) ::
+              {:ok, Struct.t()}
+              | {:error, Ecto.Changeset.t()}
       def create(changeset_or_attrs \\ %{})
 
       def create(%Ecto.Changeset{} = changeset) do
-        @repo.insert changeset
+        @repo.insert(changeset)
       end
 
       def create(attrs) do
-        create change(attrs)
+        create(change(attrs))
       end
 
       def create!(changeset_or_attrs \\ %{})
 
-      @spec create!(Ecto.Changeset.t) :: Struct.t | no_return
+      @spec create!(Ecto.Changeset.t()) :: Struct.t() | no_return
       def create!(%Ecto.Changeset{} = changeset) do
-        @repo.insert! changeset
+        @repo.insert!(changeset)
       end
 
-      @spec create!(Keyword.t) :: Struct.t | no_return
+      @spec create!(Keyword.t()) :: Struct.t() | no_return
       def create!(attrs) do
-        create! change(attrs)
+        create!(change(attrs))
       end
 
-      @spec update(Ecto.Changeset.t) :: {:ok, Struct.t} |
-                                        {:error, Ecto.Changeset.t}
+      @spec update(Ecto.Changeset.t()) ::
+              {:ok, Struct.t()}
+              | {:error, Ecto.Changeset.t()}
       def update(%Ecto.Changeset{} = changeset) do
-        @repo.update changeset
+        @repo.update(changeset)
       end
 
-      @spec update(Struct.t, Keyword.t) :: {:ok, Struct.t} |
-                                           {:error, Ecto.Changeset.t}
+      @spec update(Struct.t(), Keyword.t()) ::
+              {:ok, Struct.t()}
+              | {:error, Ecto.Changeset.t()}
       def update(%@schema{} = schema, attrs) do
         schema
         |> change(attrs)
         |> update
       end
 
-      @spec update!(Ecto.Changeset.t) :: Struct.t | no_return
+      @spec update!(Ecto.Changeset.t()) :: Struct.t() | no_return
       def update!(%Ecto.Changeset{} = changeset) do
-        @repo.update! changeset
+        @repo.update!(changeset)
       end
 
-      @spec update!(Struct.t, Keyword.t) :: Struct.t | no_return
+      @spec update!(Struct.t(), Keyword.t()) :: Struct.t() | no_return
       def update!(%@schema{} = schema, attrs) do
         schema
         |> change(attrs)
         |> update!
       end
 
-      @spec delete(Struct.t) :: {:ok, Struct.t} |
-                                {:error, Ecto.Changeset.t}
+      @spec delete(Struct.t()) ::
+              {:ok, Struct.t()}
+              | {:error, Ecto.Changeset.t()}
       def delete(%@schema{} = schema) do
-        delete change(schema)
+        delete(change(schema))
       end
 
       @doc """
       Delete the #{@schema} given by an `Ecto.Changeset`.
       """
-      @spec delete(Ecto.Changeset.t) :: {:ok, Struct.t} |
-                                        {:error, Ecto.Changeset.t}
+      @spec delete(Ecto.Changeset.t()) ::
+              {:ok, Struct.t()}
+              | {:error, Ecto.Changeset.t()}
       def delete(%Ecto.Changeset{} = changeset) do
-        @repo.delete changeset
+        @repo.delete(changeset)
       end
 
       @doc """
       Delete the #{@schema} given by an id.
       """
-      @spec delete(id) :: {:ok, Struct.t} |
-                          {:error, Ecto.Changeset.t}
+      @spec delete(id) ::
+              {:ok, Struct.t()}
+              | {:error, Ecto.Changeset.t()}
       def delete(id) do
-        delete get(id)
+        delete(get(id))
       end
 
       @doc """
       Delete the #{@schema} given a the struct, or raise an exception.
       """
-      @spec delete!(Struct.t) :: Struct.t | no_return
+      @spec delete!(Struct.t()) :: Struct.t() | no_return
       def delete!(%@schema{} = schema) do
-        delete! change(schema)
+        delete!(change(schema))
       end
 
       @doc """
       Delete the #{@schema} given a changeset, or raise an exception.
       """
-      @spec delete!(Ecto.Changeset.t) :: {:ok, Struct.t} |
-                                        {:error, Ecto.Changeset.t}
+      @spec delete!(Ecto.Changeset.t()) ::
+              {:ok, Struct.t()}
+              | {:error, Ecto.Changeset.t()}
       def delete!(%Ecto.Changeset{} = changeset) do
-        @repo.delete! changeset
+        @repo.delete!(changeset)
       end
 
       @doc """
       Delete the given #{@schema} by id, or raise an exception.
       """
-      @spec delete!(id) :: Struct.t | no_return
+      @spec delete!(id) :: Struct.t() | no_return
       def delete!(id) do
-        delete! get(id)
+        delete!(get(id))
       end
 
       @doc """
@@ -329,13 +335,13 @@ defmodule OneModel do
       """
       # @spec delete_all() :: any
       def delete_all do
-        @repo.delete_all @schema
+        @repo.delete_all(@schema)
       end
 
       @doc """
       Get the first #{@schema} ordered by creation date
       """
-      @spec first() :: Struct.t | nil
+      @spec first() :: Struct.t() | nil
       def first do
         @schema
         |> order_by(asc: :inserted_at)
@@ -346,7 +352,7 @@ defmodule OneModel do
       @doc """
       Get the last #{@schema} ordered by creation date
       """
-      @spec last() :: Struct.t | nil
+      @spec last() :: Struct.t() | nil
       def last do
         @schema
         |> order_by(asc: :inserted_at)
@@ -359,7 +365,7 @@ defmodule OneModel do
       """
       @spec count() :: integer
       def count do
-        @repo.one(from s in @schema, select: count(s.id))
+        @repo.one(from(s in @schema, select: count(s.id)))
       end
 
       @doc """
@@ -385,15 +391,28 @@ defmodule OneModel do
       Preload a #{@schema}.
       """
       def preload_schema(schema, preload) do
-        @repo.preload schema, preload
+        @repo.preload(schema, preload)
       end
 
-      defoverridable [
-        delete: 1, delete!: 1, update: 1, update: 2, update!: 1,
-        update!: 2, create: 1, create!: 1, get_by: 1, get_by!: 1,
-        get: 2, get!: 2, list: 0, change: 2, change: 1, delete_all: 0,
-        preload_schema: 2, count: 0, count_by: 1
-      ]
+      defoverridable delete: 1,
+                     delete!: 1,
+                     update: 1,
+                     update: 2,
+                     update!: 1,
+                     update!: 2,
+                     create: 1,
+                     create!: 1,
+                     get_by: 1,
+                     get_by!: 1,
+                     get: 2,
+                     get!: 2,
+                     list: 0,
+                     change: 2,
+                     change: 1,
+                     delete_all: 0,
+                     preload_schema: 2,
+                     count: 0,
+                     count_by: 1
     end
   end
 end
