@@ -496,6 +496,7 @@ defmodule OneModel do
 
   def query_sort_and_paginate(model, params, defaults, opts \\ []) do
     query_params = query_params(params)
+
     query_fields = query_fields(params, defaults)
 
     list =
@@ -673,6 +674,10 @@ defmodule OneModel do
   end
 
   defp query_params(params, %{"query" => query}) do
+    query_params(params, %{query: query})
+  end
+
+  defp query_params(params, %{query: query}) when is_binary(query) do
     case Jason.decode(query) do
       {:ok, map} ->
         Map.put(params, :query, map)
@@ -683,11 +688,19 @@ defmodule OneModel do
     end
   end
 
+  defp query_params(params, %{query: query}) when is_map(query) do
+    Map.put(params, :query, query)
+  end
+
   defp query_params(params, _) do
     params
   end
 
   defp count_params(params, %{"count" => count}) do
+    count_params(params, %{count: count})
+  end
+
+  defp count_params(params, %{count: count}) do
     Map.put(params, :count, to_integer(count))
   end
 
@@ -696,6 +709,10 @@ defmodule OneModel do
   end
 
   defp offset_params(params, %{"offset" => offset}) do
+    offset_params(params, %{offset: offset})
+  end
+
+  defp offset_params(params, %{offset: offset}) do
     Map.put(params, :offset, to_integer(offset))
   end
 
@@ -703,11 +720,15 @@ defmodule OneModel do
     params
   end
 
-  defp sort_params(params, %{"sort" => sort = %{}}) do
+  defp sort_params(params, %{"sort" => sort}) do
+    sort_params(params, %{sort: sort})
+  end
+
+  defp sort_params(params, %{sort: sort = %{}}) do
     Map.put(params, :sort, sort)
   end
 
-  defp sort_params(params, %{"sort" => sort}) when is_binary(sort) do
+  defp sort_params(params, %{sort: sort}) when is_binary(sort) do
     case sort |> String.replace("'", "\"") |> Jason.decode() do
       {:ok, map} ->
         Map.put(params, :sort, for({key, val} <- map, into: %{}, do: {to_atom(key), order(val)}))
