@@ -614,10 +614,40 @@ defmodule OneModel do
     list
   end
 
-  defp select_fields(list, fields, _assoc_fields) do
+  def do_sf(list, fields, assoc_fields) do
+    select_fields(list, fields, assoc_fields)
+  end
+
+  defp select_fields(list, fields, assoc_fields) do
     Enum.map(list, fn item ->
-      for f <- fields, into: %{}, do: {f, Map.get(item, f)}
+      %{}
+      |> select_fields_fields(item, fields)
+      |> select_fields_assoc_fields(item, assoc_fields)
     end)
+  end
+
+  defp select_fields_fields(acc, item, fields) do
+    for f <- fields, into: acc, do: {f, Map.get(item, f)}
+  end
+
+  defp select_fields_assoc_fields(acc, item, fields) do
+    Enum.reduce(fields, acc, &put_assoc_field(&2, item, &1))
+  end
+
+  defp put_assoc_field(acc, nil, field) do
+    put_assoc_field(acc, %{}, field)
+  end
+
+  defp put_assoc_field(acc, item, field) when is_atom(field) do
+    Map.put(acc, field, Map.get(item, field))
+  end
+
+  defp put_assoc_field(acc, item, {field, list}) when is_list(list) do
+    Map.put(acc, field, select_fields_assoc_fields(%{}, Map.get(item, field), list))
+  end
+
+  defp put_assoc_field(acc, item, list) when is_list(list) do
+    Enum.reduce(list, acc, &put_assoc_field(&2, item, &1))
   end
 
   @doc """
@@ -773,8 +803,8 @@ defmodule OneModel do
     end
   end
 
-  def query_fields(_, _defaults) do
-    %{}
+  def query_fields(_, defaults) do
+    %{include: defaults[:fields] ++ defaults[:assoc_fields], exclude: []}
   end
 
   # def query_fields(%{fields: fields} = params) when is_map(fields) do
