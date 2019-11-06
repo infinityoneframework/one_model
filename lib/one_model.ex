@@ -477,6 +477,7 @@ defmodule OneModel do
                      count: 0,
                      count_by: 1,
                      query_sort_and_paginate: 2,
+                     list_by: 1,
                      list_by_query: 1,
                      all: 1,
                      one: 1,
