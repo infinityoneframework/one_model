@@ -88,7 +88,7 @@ defmodule OneModel do
   require Logger
 
   defmacro __using__(opts) do
-    quote do
+    quote location: :keep do
       opts = unquote(opts)
       @repo opts[:repo] || InfinityOne.Repo
       @schema opts[:schema] || raise(":schema option required")
@@ -97,41 +97,54 @@ defmodule OneModel do
       @default_limit opts[:default_limit] || 50
 
       @type id :: String.t()
+      if opts[:t] do
+        @type t :: @schema.t
+      else
+        @type t :: struct
+      end
 
       import Ecto.Query, except: [update: 2, update: 3], warn: false
 
       @doc """
       Create a default #{@schema} struct.
       """
-      @spec new() :: Struct.t()
+      @spec new() :: t
       def new, do: %@schema{}
 
       @doc """
       Create a #{@schema} with the provided options.
       """
-      @spec new(Keyword.t() | Map.t()) :: Struct.t()
+      @spec new(keyword() | map()) :: t
       def new(opts), do: struct(new(), opts)
 
       @doc """
       Return the schema module.
       """
-      @spec schema() :: Module.t()
+      @spec schema() :: atom
       def schema, do: @schema
 
       @doc """
       Returns an `%Ecto.Changeset{}` for tracking #{@schema} changes.
       """
-      @spec change(Struct.t(), Map.t()) :: Ecto.Changeset.t()
+      @spec change(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t() | no_return
       def change(%@schema{} = schema, attrs) do
         @schema.changeset(schema, attrs)
+      end
+
+      def change(%Ecto.Changeset{} = changeset, attrs) do
+        @schema.changeset(changeset, attrs)
       end
 
       @doc """
       Returns an `%Ecto.Changeset{}` for tracking #{@schema} changes.
       """
-      @spec change(Struct.t() | Map.t()) :: Ecto.Changeset.t()
+      @spec change(t() | Ecto.Changeset.t() | map()) :: Ecto.Changeset.t() | no_return
       def change(%@schema{} = schema) do
         @schema.changeset(schema)
+      end
+
+      def change(%Ecto.Changeset{} = changeset) do
+        @schema.changeset(changeset)
       end
 
       def change(attrs) when is_map(attrs) do
@@ -145,7 +158,7 @@ defmodule OneModel do
 
       * `preload: list`
       """
-      @spec list(Keword.t()) :: [Struct.t()]
+      @spec list(keyword()) :: [t()]
       def list(opts \\ []) do
         if preload = opts[:preload] do
           @schema
@@ -168,7 +181,7 @@ defmodule OneModel do
 
           #{@schema}.list_by field1: value1, field2: field2, preload: [:association]
       """
-      @spec list_by(Keyword.t()) :: List.t()
+      @spec list_by(keyword()) :: []
       def list_by(opts) do
         opts
         |> list_by_query()
@@ -179,7 +192,7 @@ defmodule OneModel do
       @doc """
       Build the list_by query.
       """
-      @spec list_by_query(Keyword.t(), Keyword.t()) :: [Struct.t()]
+      @spec list_by_query(keyword(), keyword()) :: [t()]
       def list_by_query(params, opts \\ []) do
         {preload, params} = Keyword.pop(params, :preload, [])
         preload = if opts[:preload] == false or preload == [], do: false, else: preload
@@ -202,7 +215,7 @@ defmodule OneModel do
 
       Pass a list of preloads with the `:preload` key.
       """
-      @spec get(id, Keyword.t()) :: Struct.t() | nil
+      @spec get(id, keyword()) :: t() | nil
       def get(id, opts) do
         if preload = opts[:preload] do
           @repo.one(from(s in @schema, where: s.id == ^id, preload: ^preload))
@@ -211,10 +224,10 @@ defmodule OneModel do
         end
       end
 
-      @spec get(id) :: Struct.t() | nil
+      @spec get(id) :: t() | nil
       def get(id), do: @repo.get(@schema, id)
 
-      @spec get!(id, Keyword.t()) :: Struct.t() | no_return
+      @spec get!(id, keyword()) :: t() | no_return
       def get!(id, opts) do
         if preload = opts[:preload] do
           @repo.one!(from(s in @schema, where: s.id == ^id, preload: ^preload))
@@ -223,10 +236,10 @@ defmodule OneModel do
         end
       end
 
-      @spec get!(id) :: Struct.t() | no_return
+      @spec get!(id) :: t() | no_return
       def get!(id), do: @repo.get!(@schema, id)
 
-      @spec get_by(Keyword.t()) :: Struct.t() | nil
+      @spec get_by(keyword()) :: t() | nil
       def get_by(opts) do
         if preload = opts[:preload] do
           # TODO: Fix this with a single query
@@ -238,7 +251,7 @@ defmodule OneModel do
         end
       end
 
-      @spec get_by!(Keyword.t()) :: Struct.t() | no_return
+      @spec get_by!(keyword()) :: t() | no_return
       def get_by!(opts) do
         if preload = opts[:preload] do
           @schema
@@ -249,61 +262,75 @@ defmodule OneModel do
         end
       end
 
-      @spec create(Ecto.Changeset.t() | Map.t()) ::
-              {:ok, Struct.t()}
+      @spec create ::
+              {:ok, t()}
               | {:error, Ecto.Changeset.t()}
-      def create(changeset_or_attrs \\ %{})
+              | no_return
+      def create, do: create(%{})
+
+      @spec create(Ecto.Changeset.t() | map()) ::
+              {:ok, t()}
+              | {:error, Ecto.Changeset.t()}
+              | no_return
 
       def create(%Ecto.Changeset{} = changeset) do
         @repo.insert(changeset)
       end
 
-      def create(attrs) do
+      def create(%@schema{} = schema) do
+        schema |> change() |> @repo.insert()
+      end
+
+      def create(%{} = attrs) do
         create(change(attrs))
       end
 
-      @spec create!(Ecto.Changeset.t() | Map.t()) :: Struct.t() | no_return
-      def create!(changeset_or_attrs \\ %{})
+      @spec create! :: t() | no_return
+      def create!, do: create!(%{})
 
+      @spec create!(Ecto.Changeset.t() | map()) :: t() | no_return
       def create!(%Ecto.Changeset{} = changeset) do
         @repo.insert!(changeset)
       end
 
-      def create!(attrs) do
+      def create!(%{} = attrs) do
         create!(change(attrs))
       end
 
       @spec update(Ecto.Changeset.t()) ::
-              {:ok, Struct.t()}
+              {:ok, t()}
               | {:error, Ecto.Changeset.t()}
+              | no_return
       def update(%Ecto.Changeset{} = changeset) do
         @repo.update(changeset)
       end
 
-      @spec update(Struct.t(), Map.t()) ::
-              {:ok, Struct.t()}
+      @spec update(t(), map()) ::
+              {:ok, t()}
               | {:error, Ecto.Changeset.t()}
+              | no_return
       def update(%@schema{} = schema, attrs) do
         schema
         |> change(attrs)
         |> update
       end
 
-      @spec update!(Ecto.Changeset.t()) :: Struct.t() | no_return
+      @spec update!(Ecto.Changeset.t()) :: t() | no_return
       def update!(%Ecto.Changeset{} = changeset) do
         @repo.update!(changeset)
       end
 
-      @spec update!(Struct.t(), Map.t()) :: Struct.t() | no_return
+      @spec update!(t(), map()) :: t() | no_return
       def update!(%@schema{} = schema, attrs) do
         schema
         |> change(attrs)
         |> update!
       end
 
-      @spec delete(Ecto.Changeset.t() | Struct.t() | id) ::
-              {:ok, Struct.t()}
+      @spec delete(Ecto.Changeset.t() | t() | id) ::
+              {:ok, t()}
               | {:error, Ecto.Changeset.t()}
+              | no_return
       def delete(%@schema{} = schema) do
         delete(change(schema))
       end
@@ -320,7 +347,7 @@ defmodule OneModel do
       @doc """
       Delete the #{@schema} given a the struct, or raise an exception.
       """
-      @spec delete!(Ecto.Changeset.t() | Struct.t() | id) :: Struct.t() | no_return
+      @spec delete!(Ecto.Changeset.t() | t() | id) :: t() | no_return
       def delete!(%@schema{} = schema), do: schema |> change() |> delete!()
 
       @doc """
@@ -342,7 +369,7 @@ defmodule OneModel do
       @doc """
       Get the first #{@schema} ordered by creation date
       """
-      @spec first() :: Struct.t() | nil
+      @spec first() :: t() | nil
       def first,
         do:
           @schema
@@ -353,7 +380,7 @@ defmodule OneModel do
       @doc """
       Get the last #{@schema} ordered by creation date
       """
-      @spec last() :: Struct.t() | nil
+      @spec last() :: t() | nil
       def last,
         do:
           @schema
@@ -376,7 +403,7 @@ defmodule OneModel do
 
           MyModel.count_by(published: true, expired: false)
       """
-      @spec count_by(Keyword.t() | map()) :: integer
+      @spec count_by(keyword() | map()) :: integer
       def count_by(clauses) do
         clauses
         |> Enum.reduce(@schema, fn {k, v}, query ->
@@ -389,13 +416,13 @@ defmodule OneModel do
       @doc """
       Preload a #{@schema}.
       """
-      @spec preload_schema(Struct.t() | [Struct.t()], List.t()) :: Struct.t() | [Struct.t()]
+      @spec preload_schema(t() | [t()], []) :: t() | [t()]
       def preload_schema(schema, preload), do: @repo.preload(schema, preload)
 
       @doc """
       Fetch a list given a query.
       """
-      @spec all(Ecto.Query.t()) :: [Struct.t()]
+      @spec all(Ecto.Query.t()) :: [t()]
       def all(query) do
         @repo.all(query)
       end
@@ -403,7 +430,7 @@ defmodule OneModel do
       @doc """
       Fetch a single schema for the given query.
       """
-      @spec one(Ecto.Query.t()) :: Struct.t() | nil
+      @spec one(Ecto.Query.t()) :: t() | nil
       def one(query) do
         @repo.one(query)
       end
@@ -411,7 +438,7 @@ defmodule OneModel do
       @doc """
       Fetch records given the selection parameters supported by many API requests.
       """
-      @spec query_sort_and_paginate(Map.t(), Keyword.t()) :: {[Struct.t()], Map.t()}
+      @spec query_sort_and_paginate(map(), keyword()) :: {[any()], map()}
       def query_sort_and_paginate(params, opts \\ []) do
         defaults = %{
           fields: @default_fields,
@@ -422,7 +449,7 @@ defmodule OneModel do
         OneModel.query_sort_and_paginate(__MODULE__, params, defaults, opts)
       end
 
-      @spec paging_stats([Struct.t()], Map.t(), Keyword.t()) :: Keyword.t()
+      @spec paging_stats([struct()], map(), keyword()) :: keyword()
       def paging_stats(list, params, opts \\ []) do
         OneModel.paging_stats(params, fn ->
           [count: length(list), total: get_query_count(params, opts)]
@@ -488,6 +515,7 @@ defmodule OneModel do
     end
   end
 
+  @spec query_sort_and_paginate(atom, map, atom | map(), keyword()) :: {[any], any}
   def query_sort_and_paginate(model, params, defaults, opts \\ []) do
     query_params = query_params(params)
 
@@ -504,10 +532,6 @@ defmodule OneModel do
       |> build_fields_list(query_fields, defaults)
 
     {list, model.paging_stats(list, params, opts)}
-  end
-
-  defp add_limit(query, %{limit: count} = opts, defaults) do
-    add_limit(query, opts |> Map.delete(:limit) |> Map.put(:count, count), defaults)
   end
 
   defp add_limit(query, %{count: 0}, _) do
@@ -604,9 +628,9 @@ defmodule OneModel do
     select_fields(list, defaults.fields -- excl, defaults.assoc_fields -- exclude)
   end
 
-  defp build_fields_list(list, _, _) do
-    list
-  end
+  # defp build_fields_list(list, _, _) do
+  #   list
+  # end
 
   def do_sf(list, fields, assoc_fields) do
     select_fields(list, fields, assoc_fields)
