@@ -15,13 +15,13 @@ defmodule OneModel do
         post.ex
         schema
           blog_schema.ex
-          post_schema.exe
+          post_schema.ex
 
   And have the following files:
 
       # post.ex
       defmodule MyApp.Post do
-        use InfinityOne.Model, schema: MyApp.Post.Schema
+        use OneModel, schema: MyApp.Post.Schema, repo: MyApp.Repo
 
         @doc ~s(
           Example to show overriding default behaviour
@@ -51,7 +51,7 @@ defmodule OneModel do
 
         def changeset(struct, params) do
           struct
-          |> cast(params, [:tile, :body, :blog_id])
+          |> cast(params, [:title, :body, :blog_id])
           |> validate_required([:title, :body, :blog_id])
         end
       end
@@ -120,13 +120,13 @@ defmodule OneModel do
       @doc """
       Return the schema module.
       """
-      @spec schema() :: atom
+      @spec schema() :: module()
       def schema, do: @schema
 
       @doc """
       Returns an `%Ecto.Changeset{}` for tracking #{@schema} changes.
       """
-      @spec change(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t() | no_return
+      @spec change(t() | Ecto.Changeset.t(), map()) :: Ecto.Changeset.t()
       def change(%@schema{} = schema, attrs) do
         @schema.changeset(schema, attrs)
       end
@@ -138,7 +138,7 @@ defmodule OneModel do
       @doc """
       Returns an `%Ecto.Changeset{}` for tracking #{@schema} changes.
       """
-      @spec change(t() | Ecto.Changeset.t() | map()) :: Ecto.Changeset.t() | no_return
+      @spec change(t() | Ecto.Changeset.t() | map()) :: Ecto.Changeset.t()
       def change(%@schema{} = schema) do
         @schema.changeset(schema)
       end
@@ -171,7 +171,7 @@ defmodule OneModel do
       end
 
       @doc """
-      Get a list of #{@schema},s given a list of field value pairs.
+      Get a list of #{@schema},s given a list of {field, value} pairs.
 
       ## Preload
 
@@ -179,9 +179,9 @@ defmodule OneModel do
 
       ## Examples
 
-          #{@schema}.list_by field1: value1, field2: field2, preload: [:association]
+          #{@schema}.list_by(field1: value1, field2: field2, preload: [:association])
       """
-      @spec list_by(keyword()) :: []
+      @spec list_by(keyword()) :: [t()]
       def list_by(opts) do
         opts
         |> list_by_query()
@@ -192,7 +192,7 @@ defmodule OneModel do
       @doc """
       Build the list_by query.
       """
-      @spec list_by_query(keyword(), keyword()) :: [t()]
+      @spec list_by_query(keyword(), keyword()) :: any()
       def list_by_query(params, opts \\ []) do
         {preload, params} = Keyword.pop(params, :preload, [])
         preload = if opts[:preload] == false or preload == [], do: false, else: preload
@@ -255,7 +255,7 @@ defmodule OneModel do
       def get_by!(opts) do
         if preload = opts[:preload] do
           @schema
-          |> @repo.get_by(Keyword.delete(opts, :preload))
+          |> @repo.get_by!(Keyword.delete(opts, :preload))
           |> @repo.preload(preload)
         else
           @repo.get_by!(@schema, opts)
@@ -265,13 +265,11 @@ defmodule OneModel do
       @spec create ::
               {:ok, t()}
               | {:error, Ecto.Changeset.t()}
-              | no_return
       def create, do: create(%{})
 
       @spec create(Ecto.Changeset.t() | map()) ::
               {:ok, t()}
               | {:error, Ecto.Changeset.t()}
-              | no_return
 
       def create(%Ecto.Changeset{} = changeset) do
         @repo.insert(changeset)
@@ -300,7 +298,6 @@ defmodule OneModel do
       @spec update(Ecto.Changeset.t()) ::
               {:ok, t()}
               | {:error, Ecto.Changeset.t()}
-              | no_return
       def update(%Ecto.Changeset{} = changeset) do
         @repo.update(changeset)
       end
@@ -308,7 +305,6 @@ defmodule OneModel do
       @spec update(t(), map()) ::
               {:ok, t()}
               | {:error, Ecto.Changeset.t()}
-              | no_return
       def update(%@schema{} = schema, attrs) do
         schema
         |> change(attrs)
@@ -330,7 +326,6 @@ defmodule OneModel do
       @spec delete(Ecto.Changeset.t() | t() | id) ::
               {:ok, t()}
               | {:error, Ecto.Changeset.t()}
-              | no_return
       def delete(%@schema{} = schema) do
         delete(change(schema))
       end
@@ -416,7 +411,7 @@ defmodule OneModel do
       @doc """
       Preload a #{@schema}.
       """
-      @spec preload_schema(t() | [t()], []) :: t() | [t()]
+      @spec preload_schema(t() | [t()], list()) :: t() | [t()]
       def preload_schema(schema, preload), do: @repo.preload(schema, preload)
 
       @doc """
@@ -438,7 +433,7 @@ defmodule OneModel do
       @doc """
       Fetch records given the selection parameters supported by many API requests.
       """
-      @spec query_sort_and_paginate(map(), keyword()) :: {[any()], map()}
+      @spec query_sort_and_paginate(map(), keyword()) :: {[struct()], keyword()}
       def query_sort_and_paginate(params, opts \\ []) do
         defaults = %{
           fields: @default_fields,
@@ -515,7 +510,7 @@ defmodule OneModel do
     end
   end
 
-  @spec query_sort_and_paginate(atom, map, atom | map(), keyword()) :: {[any], any}
+  @spec query_sort_and_paginate(module(), map, atom | map(), keyword()) :: {[struct()], keyword()}
   def query_sort_and_paginate(model, params, defaults, opts \\ []) do
     query_params = query_params(params)
 
