@@ -215,7 +215,7 @@ defmodule OneModel do
 
       Pass a list of preloads with the `:preload` key.
       """
-      @spec get(id, keyword()) :: t() | nil
+      @spec get(id(), keyword()) :: t() | nil
       def get(id, opts) do
         if preload = opts[:preload] do
           @repo.one(from(s in @schema, where: s.id == ^id, preload: ^preload))
@@ -224,10 +224,10 @@ defmodule OneModel do
         end
       end
 
-      @spec get(id) :: t() | nil
+      @spec get(id()) :: t() | nil
       def get(id), do: @repo.get(@schema, id)
 
-      @spec get!(id, keyword()) :: t() | no_return
+      @spec get!(id(), keyword()) :: t() | no_return
       def get!(id, opts) do
         if preload = opts[:preload] do
           @repo.one!(from(s in @schema, where: s.id == ^id, preload: ^preload))
@@ -236,7 +236,7 @@ defmodule OneModel do
         end
       end
 
-      @spec get!(id) :: t() | no_return
+      @spec get!(id()) :: t() | no_return
       def get!(id), do: @repo.get!(@schema, id)
 
       @spec get_by(keyword()) :: t() | nil
@@ -323,7 +323,7 @@ defmodule OneModel do
         |> update!
       end
 
-      @spec delete(Ecto.Changeset.t() | t() | id) ::
+      @spec delete(Ecto.Changeset.t() | t() | id()) ::
               {:ok, t()}
               | {:error, Ecto.Changeset.t()}
       def delete(%@schema{} = schema) do
@@ -342,7 +342,7 @@ defmodule OneModel do
       @doc """
       Delete the #{@schema} given a the struct, or raise an exception.
       """
-      @spec delete!(Ecto.Changeset.t() | t() | id) :: t() | no_return
+      @spec delete!(Ecto.Changeset.t() | t() | id()) :: t() | no_return
       def delete!(%@schema{} = schema), do: schema |> change() |> delete!()
 
       @doc """
@@ -510,7 +510,7 @@ defmodule OneModel do
     end
   end
 
-  @spec query_sort_and_paginate(module(), map, atom | map(), keyword()) :: {[struct()], keyword()}
+  @spec query_sort_and_paginate(module(), map(), atom() | map(), keyword()) :: {[struct()], keyword()}
   def query_sort_and_paginate(model, params, defaults, opts \\ []) do
     query_params = query_params(params)
 
