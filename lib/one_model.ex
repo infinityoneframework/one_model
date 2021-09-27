@@ -192,7 +192,7 @@ defmodule OneModel do
       @doc """
       Build the list_by query.
       """
-      @spec list_by_query(keyword(), keyword()) :: any()
+      @spec list_by_query(keyword(), keyword()) :: Ecto.Query.t()
       def list_by_query(params, opts \\ []) do
         {preload, params} = Keyword.pop(params, :preload, [])
         preload = if opts[:preload] == false or preload == [], do: false, else: preload
