@@ -141,24 +141,27 @@ defmodule OneModel do
       @doc """
       Get a list of #{@schema}'s.
 
-      ## Options'
+      ## Options
 
       * `preload: list`
+      * `order_by: atom | list`
       """
       @spec list(Keword.t()) :: [Struct.t()]
       def list(opts \\ []) do
         if preload = opts[:preload] do
           @schema
           |> preload(^preload)
-          |> order_by(asc: :inserted_at)
-          |> @repo.all
+          |> do_order(opts[:order_by])
+          |> @repo.all()
         else
-          @repo.all(@schema)
+          @schema
+          |> do_order(opts[:order_by])
+          |> @repo.all()
         end
       end
 
       @doc """
-      Get a list of #{@schema},s given a list of field value pairs.
+      Get a list of #{@schema},s given a list of {field, value} pairs.
 
       ## Preload
 
@@ -166,13 +169,12 @@ defmodule OneModel do
 
       ## Examples
 
-          #{@schema}.list_by field1: value1, field2: field2, preload: [:association]
+          #{@schema}.list_by(field1: value1, field2: value2, preload: [:association])
       """
-      @spec list_by(Keyword.t()) :: List.t()
+      @spec list_by(Keword.t()) :: [Struct.t()]
       def list_by(opts) do
         opts
         |> list_by_query()
-        |> order_by(asc: :inserted_at)
         |> @repo.all()
       end
 
@@ -181,19 +183,30 @@ defmodule OneModel do
       """
       @spec list_by_query(Keyword.t(), Keyword.t()) :: [Struct.t()]
       def list_by_query(params, opts \\ []) do
-        {preload, params} = Keyword.pop(params, :preload, [])
-        preload = if opts[:preload] == false or preload == [], do: false, else: preload
+        {pre_ord, params} = Keyword.split(params, ~w(preload order_by)a)
+
+        preload =
+          if opts[:preload] == false or pre_ord[:preload] == [],
+            do: false,
+            else: pre_ord[:preload]
+
+        order = opts[:order_by] || pre_ord[:order_by]
 
         params
         |> Enum.reduce(@schema, fn {k, v}, query ->
           where(query, [b], field(b, ^k) == ^v)
         end)
         |> do_preload(preload)
+        |> do_order(order)
       end
 
+      defp do_preload(query, nil), do: query
       defp do_preload(query, false), do: query
       defp do_preload(query, []), do: query
       defp do_preload(query, preload), do: preload(query, ^preload)
+
+      defp do_order(query, nil), do: order_by(query, asc: :inserted_at)
+      defp do_order(query, order), do: order_by(query, ^order)
 
       @doc """
       Get a single #{@schema}.
@@ -585,7 +598,7 @@ defmodule OneModel do
     do: where(builder, [c], field(c, ^field) in ^value)
 
   defp build_query_filters(builder, field, value, "$nin"),
-    do: where(builder, [c], not (field(c, ^field) in ^value))
+    do: where(builder, [c], field(c, ^field) not in ^value)
 
   # TODO: This function currently processes the list fetched from the database
   #       and filters the fields given. This is not optimized. It would be
