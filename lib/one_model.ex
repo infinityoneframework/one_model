@@ -154,59 +154,97 @@ defmodule OneModel do
       @doc """
       Get a list of #{@schema}'s.
 
-      ## Options'
+      ## Options
 
       * `preload: list`
+      * `order_by: atom | list`
+      * `select: atom | list`
+        * Passing an atom will return the value of the given atom key 
+        * Passing a list of keys will return a map with the {key, value} pairs
+      * `limit: integer`
       """
       @spec list(keyword()) :: [t()]
       def list(opts \\ []) do
-        if preload = opts[:preload] do
-          @schema
-          |> preload(^preload)
-          |> order_by(asc: :inserted_at)
-          |> @repo.all
-        else
-          @repo.all(@schema)
-        end
+        @schema
+        |> do_order(opts[:order_by])
+        |> do_preload(opts[:preload])
+        |> do_select(opts[:select])
+        |> do_limit(opts[:limit])
+        |> @repo.all()
       end
 
       @doc """
-      Get a list of #{@schema},s given a list of {field, value} pairs.
+      Get a list of #{@schema}s given a list of {field, value} pairs.
 
       ## Preload
 
       Pass a list of preloads with the `:preload` key.
 
+      ## Order by
+
+      Pass an atom or list of fields to sort by with the `:order_by` key.
+      Defaults to sorting by `:inserted_at` in ascending order.
+
+      ## Select
+
+      Pass an atom or list of fields to be selected with the `:select` key.
+      Passing an atom will return the value of the given atom key.
+      Passing a list of keys will return a map with the {key, value} pairs.
+
+      ## Limit
+
+      Pass an integer with the `:limit` key to specify the number of entries returned.
+
       ## Examples
 
-          #{@schema}.list_by(field1: value1, field2: field2, preload: [:association])
+          #{@schema}.list_by(field1: value1, field2: value2, preload: [:association])
+          #{@schema}.list_by(field1: value1, order_by: :field2)
+          #{@schema}.list_by(field1: value1, order_by: [asc: :field3])
+          #{@schema}.list_by(field1: value1, select: :field2)
+          #{@schema}.list_by(field2: value2, select: [:field1, field3], limit: 2)
       """
       @spec list_by(keyword()) :: [t()]
       def list_by(opts) do
-        opts
+        (opts ++ [order_by: :inserted_at])
         |> list_by_query()
-        |> order_by(asc: :inserted_at)
         |> @repo.all()
       end
 
       @doc """
       Build the list_by query.
       """
-      @spec list_by_query(keyword(), keyword()) :: Ecto.Query.t()
-      def list_by_query(params, opts \\ []) do
-        {preload, params} = Keyword.pop(params, :preload, [])
-        preload = if opts[:preload] == false or preload == [], do: false, else: preload
+      @spec list_by_query(keyword()) :: Ecto.Query.t()
+      def list_by_query(opts) do
+        {expressions, opts} = Keyword.split(opts, ~w(select order_by preload limit)a)
 
-        params
+        opts
         |> Enum.reduce(@schema, fn {k, v}, query ->
           where(query, [b], field(b, ^k) == ^v)
         end)
-        |> do_preload(preload)
+        |> do_order(expressions[:order_by])
+        |> do_preload(expressions[:preload])
+        |> do_select(expressions[:select])
+        |> do_limit(expressions[:limit])
       end
 
+      defp do_order(query, nil), do: query
+      defp do_order(query, false), do: query
+      defp do_order(query, []), do: query
+      defp do_order(query, order), do: order_by(query, ^order)
+
+      defp do_preload(query, nil), do: query
       defp do_preload(query, false), do: query
       defp do_preload(query, []), do: query
       defp do_preload(query, preload), do: preload(query, ^preload)
+
+      defp do_select(query, nil), do: query
+      defp do_select(query, []), do: query
+      defp do_select(query, key) when is_atom(key), do: select(query, [b], field(b, ^key))
+      defp do_select(query, [key]), do: select(query, [b], field(b, ^key))
+      defp do_select(query, keys), do: select(query, [b], map(b, ^keys))
+
+      defp do_limit(query, nil), do: query
+      defp do_limit(query, limit), do: limit(query, ^limit)
 
       @doc """
       Get a single #{@schema}.
@@ -510,7 +548,8 @@ defmodule OneModel do
     end
   end
 
-  @spec query_sort_and_paginate(module(), map(), atom() | map(), keyword()) :: {[struct()], keyword()}
+  @spec query_sort_and_paginate(module(), map(), atom() | map(), keyword()) ::
+          {[struct()], keyword()}
   def query_sort_and_paginate(model, params, defaults, opts \\ []) do
     query_params = query_params(params)
 
@@ -604,7 +643,7 @@ defmodule OneModel do
     do: where(builder, [c], field(c, ^field) in ^value)
 
   defp build_query_filters(builder, field, value, "$nin"),
-    do: where(builder, [c], not (field(c, ^field) in ^value))
+    do: where(builder, [c], field(c, ^field) not in ^value)
 
   # TODO: This function currently processes the list fetched from the database
   #       and filters the fields given. This is not optimized. It would be
@@ -696,8 +735,8 @@ defmodule OneModel do
   def get_query_count(model, params, opts \\ []) do
     query_params = query_params(params)
 
-    opts
-    |> model.list_by_query(preload: false)
+    [{:preload, false}, {:order_by, false} | opts]
+    |> model.list_by_query()
     |> add_query_fields(query_params)
     |> select([m], count(m.id))
     |> model.one()
@@ -852,10 +891,11 @@ defmodule OneModel do
   @doc """
   Safe conversion of string to integer.
 
-  Allows nil, integers, and stings to be converted with the following behavior:
+  Allows nil, integers, and strings to be converted with the following behavior:
 
   * integer - pass the value unchanged.
-  * binary - Attempt to convert it. Raises an exception if its not a valid integer
+  * binary - Attempt to convert it by parsing its float representation then rounding. 
+  If it's not a valid number (float), a warning will be logged and return 0
   * nil - Return 0
 
   ## Examples
@@ -871,13 +911,9 @@ defmodule OneModel do
   def to_integer(int) when is_integer(int), do: int
 
   def to_integer(string) when is_binary(string) do
-    case Integer.parse(string) do
+    case Float.parse(string) do
       {value, ""} ->
-        value
-
-      {value, other} ->
-        Logger.warn("inaccurate parse #{inspect({value, other})} for '#{string}'")
-        value
+        round(value)
 
       _ ->
         Logger.warn("invalid integer string '#{string}'")
