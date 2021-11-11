@@ -160,7 +160,7 @@ defmodule OneModel do
       * `order_by: atom | list`
       * `select: atom | list`
         * Passing an atom will return the value of the given atom key 
-        * Passing a list of keys will return a map with the {key, value} pairs
+        * Passing a list of keys will return the default schema with the values for the specified keys.
       * `limit: integer`
       """
       @spec list(keyword()) :: [t()]
@@ -189,11 +189,11 @@ defmodule OneModel do
 
       Pass an atom or list of fields to be selected with the `:select` key.
       Passing an atom will return the value of the given atom key.
-      Passing a list of keys will return a map with the {key, value} pairs.
+      Passing a list of keys will return the default schema with the values for the specified keys.
 
       ## Limit
 
-      Pass an integer with the `:limit` key to specify the number of entries returned.
+      Pass an integer with the `:limit` key to specify the maximum number of entries returned.
 
       ## Examples
 
@@ -201,11 +201,12 @@ defmodule OneModel do
           #{@schema}.list_by(field1: value1, order_by: :field2)
           #{@schema}.list_by(field1: value1, order_by: [asc: :field3])
           #{@schema}.list_by(field1: value1, select: :field2)
-          #{@schema}.list_by(field2: value2, select: [:field1, field3], limit: 2)
+          #{@schema}.list_by(field2: value2, select: [:field1, :field3], limit: 2)
       """
       @spec list_by(keyword()) :: [t()]
       def list_by(opts) do
-        (opts ++ [order_by: :inserted_at])
+        opts
+        |> Keyword.put_new(:order_by, :inserted_at)
         |> list_by_query()
         |> @repo.all()
       end
@@ -240,8 +241,7 @@ defmodule OneModel do
       defp do_select(query, nil), do: query
       defp do_select(query, []), do: query
       defp do_select(query, key) when is_atom(key), do: select(query, [b], field(b, ^key))
-      defp do_select(query, [key]), do: select(query, [b], field(b, ^key))
-      defp do_select(query, keys), do: select(query, [b], map(b, ^keys))
+      defp do_select(query, keys), do: select(query, ^keys)
 
       defp do_limit(query, nil), do: query
       defp do_limit(query, limit), do: limit(query, ^limit)
@@ -252,14 +252,16 @@ defmodule OneModel do
       ## Preload
 
       Pass a list of preloads with the `:preload` key.
+
+      ## Select
+
+      Pass an atom or list of fields to be selected with the `:select` key.
+      Passing an atom will return the value of the given atom key.
+      Passing a list of keys will return the default schema with the values for the specified keys.
       """
       @spec get(id(), keyword()) :: t() | nil
       def get(id, opts) do
-        if preload = opts[:preload] do
-          @repo.one(from(s in @schema, where: s.id == ^id, preload: ^preload))
-        else
-          @repo.get(@schema, id, opts)
-        end
+        opts |> Keyword.put(:id, id) |> get_by_query() |> @repo.one()
       end
 
       @spec get(id()) :: t() | nil
@@ -267,11 +269,7 @@ defmodule OneModel do
 
       @spec get!(id(), keyword()) :: t() | no_return
       def get!(id, opts) do
-        if preload = opts[:preload] do
-          @repo.one!(from(s in @schema, where: s.id == ^id, preload: ^preload))
-        else
-          @repo.get!(@schema, id, opts)
-        end
+        opts |> Keyword.put(:id, id) |> get_by_query() |> @repo.one!()
       end
 
       @spec get!(id()) :: t() | no_return
@@ -279,25 +277,23 @@ defmodule OneModel do
 
       @spec get_by(keyword()) :: t() | nil
       def get_by(opts) do
-        if preload = opts[:preload] do
-          # TODO: Fix this with a single query
-          @schema
-          |> @repo.get_by(Keyword.delete(opts, :preload))
-          |> @repo.preload(preload)
-        else
-          @repo.get_by(@schema, opts)
-        end
+        opts |> get_by_query() |> @repo.one()
       end
 
       @spec get_by!(keyword()) :: t() | no_return
       def get_by!(opts) do
-        if preload = opts[:preload] do
-          @schema
-          |> @repo.get_by!(Keyword.delete(opts, :preload))
-          |> @repo.preload(preload)
-        else
-          @repo.get_by!(@schema, opts)
-        end
+        opts |> get_by_query() |> @repo.one!()
+      end
+
+      def get_by_query(opts) do
+        {pre_sel, opts} = Keyword.split(opts, ~w(preload select)a)
+
+        opts
+        |> Enum.reduce(@schema, fn {k, v}, query ->
+          where(query, [b], field(b, ^k) == ^v)
+        end)
+        |> do_preload(pre_sel[:preload])
+        |> do_select(pre_sel[:select])
       end
 
       @spec create ::
@@ -726,16 +722,15 @@ defmodule OneModel do
   end
 
   def paging_stats(params, fun) do
-    query_params = query_params(params)
-    offset = query_params[:offset] || 0
-
-    [{:offset, to_integer(offset || 0)}] ++ fun.()
+    offset = params |> query_params() |> Map.get(:offset, 0)
+    Keyword.put(fun.(), :offset, offset)
   end
 
   def get_query_count(model, params, opts \\ []) do
     query_params = query_params(params)
 
-    [{:preload, false}, {:order_by, false} | opts]
+    opts
+    |> Keyword.drop(~w(order_by preload)a)
     |> model.list_by_query()
     |> add_query_fields(query_params)
     |> select([m], count(m.id))
@@ -891,7 +886,7 @@ defmodule OneModel do
   @doc """
   Safe conversion of string to integer.
 
-  Allows nil, integers, and strings to be converted with the following behavior:
+  Allows nil, integers, and strings to be converted with the following behaviour:
 
   * integer - pass the value unchanged.
   * binary - Attempt to convert it by parsing its float representation then rounding. 
@@ -906,6 +901,10 @@ defmodule OneModel do
       0
       iex> OneModel.to_integer(123)
       123
+      iex> OneModel.to_integer("22.2")
+      22
+      iex> OneModel.to_integer("41.8")
+      42
   """
   def to_integer(nil), do: 0
   def to_integer(int) when is_integer(int), do: int
