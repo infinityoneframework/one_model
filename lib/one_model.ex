@@ -159,7 +159,7 @@ defmodule OneModel do
       * `preload: list`
       * `order_by: atom | list`
       * `select: atom | list`
-        * Passing an atom will return the value of the given atom key 
+        * Passing an atom will return the value of the given atom key
         * Passing a list of keys will return the default schema with the values for the specified keys.
       * `limit: integer`
       """
@@ -674,8 +674,10 @@ defmodule OneModel do
   defp select_fields([first | _] = list, fields, assoc_fields, default_assoc_fields) do
     associations =
       case first do
-        %{__meta__: _} ->
-          first.__struct__.__schema__(:associations) |> Enum.filter(&(&1 in fields))
+        %{__meta__: _, __struct__: schema} ->
+          :associations
+          |> schema.__schema__()
+          |> Enum.filter(&(&1 in fields))
 
         _ ->
           []
@@ -683,7 +685,7 @@ defmodule OneModel do
 
     assoc =
       Enum.reduce(default_assoc_fields, assoc_fields, fn value, acc ->
-        if assoc_key(value) in associations && !Enum.find(acc, &(&1 == value)),
+        if assoc_key(value) in associations and not Enum.member?(acc, value),
           do: [value | acc],
           else: acc
       end)
@@ -724,8 +726,8 @@ defmodule OneModel do
 
   defp put_assoc_field(acc, item, {field, list}) when is_list(list) do
     case Map.get(item, field) do
-      nil -> Map.put(acc, field, nil)
       %Ecto.Association.NotLoaded{} -> acc
+      nil -> Map.put(acc, field, nil)
       value -> Map.put(acc, field, select_fields_assoc_fields(%{}, value, list))
     end
   end
@@ -932,7 +934,7 @@ defmodule OneModel do
   Allows nil, integers, and strings to be converted with the following behaviour:
 
   * integer - pass the value unchanged.
-  * binary - Attempt to convert it by parsing its float representation then rounding. 
+  * binary - Attempt to convert it by parsing its float representation then rounding.
   If it's not a valid number (float), a warning will be logged and return 0
   * nil - Return 0
 

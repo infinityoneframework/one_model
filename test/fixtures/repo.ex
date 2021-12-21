@@ -3,6 +3,7 @@ defmodule OneModel.TestRepo do
   @callback all(queryable :: Ecto.Query.t(), opts :: Keyword.t()) ::
               [Ecto.Schema.t()] | no_return()
   @callback one(queryable :: Ecto.Query.t()) :: Ecto.Schema.t() | nil
+  @callback one!(queryable :: Ecto.Query.t()) :: Ecto.Schema.t() | no_return()
 
   @callback insert(Ecto.Changeset.t()) :: {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   @callback insert!(Ecto.Changeset.t()) :: Ecto.Schema.t() | no_return()
@@ -11,26 +12,13 @@ defmodule OneModel.TestRepo do
   @callback delete(Ecto.Changeset.t() | Ecto.Schema.t()) ::
               {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   @callback delete!(Ecto.Changeset.t() | Ecto.Schema.t()) :: Ecto.Schema.t() | no_return()
+  @callback get(atom, integer()) :: Ecto.Schema.t() | nil
+  @callback get!(atom, integer()) :: Ecto.Schema.t() | no_return()
+  @callback get_by(atom, keyword()) :: Ecto.Schema.t() | nil
+  @callback get_by!(atom, keyword()) :: Ecto.Schema.t() | no_return()
+  @callback preload(any, any) :: any
 
   use Ecto.Repo,
     otp_app: :one_model,
     adapter: Ecto.Adapters.Postgres
-
-  # def all(_opts \\ []), do: []
-  # def one(_, _ \\ nil), do: nil
-  # def one!(_, _ \\ nil), do: nil
-  # def get(_, _ \\ nil, _ \\ nil), do: nil
-  # def get!(_, _ \\ nil, _ \\ nil), do: nil
-  # def get_by(_, _ \\ nil, _ \\ nil), do: nil
-  # def get_by!(_, _ \\ nil, _ \\ nil), do: nil
-  # def insert(_, _ \\ nil), do: {:ok, %{}}
-  # def insert!(_, _ \\ nil), do: %{}
-  # def update(_, _ \\ nil), do: {:ok, %{}}
-  # def update!(_, _ \\ nil), do: %{}
-  # def delete(_, _ \\ nil), do: %{}
-  # def delete!(_, _ \\ nil), do: %{}
-  # def delete_all(_, _ \\ nil), do: nil
-  # def delete_all!(_, _ \\ nil), do: nil
-
-  # def preload(_, _), do: []
 end

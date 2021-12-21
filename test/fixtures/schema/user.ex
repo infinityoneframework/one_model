@@ -20,6 +20,6 @@ defmodule OneModel.Schema.User do
 
   @spec changeset(Ecto.Changeset.t() | t, map) :: Ecto.Changeset.t() | no_return
   def changeset(model, params \\ %{}) do
-    cast(model, params, [:name, :username])
+    cast(model, params, [:id, :name, :username])
   end
 end

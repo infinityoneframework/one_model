@@ -20,7 +20,7 @@ defmodule OneModel.Schema.MyModel do
   @spec changeset(Ecto.Changeset.t() | t, map) :: Ecto.Changeset.t() | no_return
   def changeset(model, params \\ %{}) do
     model
-    |> cast(params, [:test, :user_id])
+    |> cast(params, [:id, :test, :user_id])
     |> validate_required([:test])
     |> validate_length(:test, min: 3)
   end

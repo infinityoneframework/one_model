@@ -8,6 +8,14 @@ defmodule OneModel.MixProject do
       elixir: "~> 1.6",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      test_coverage: [tool: ExCoveralls],
+      test_paths: ["test"],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ],
       deps: deps()
     ]
   end
@@ -29,7 +37,8 @@ defmodule OneModel.MixProject do
       {:ecto, "~> 2.1.6"},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:mox, "~> 1.0", only: :test},
-      {:mix_test_watch, "~> 1.0", only: :dev, runtime: false}
+      {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.10", only: :test}
     ]
   end
 end

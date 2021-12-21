@@ -23,6 +23,6 @@ defmodule OneModel.Schema.MyAssoc do
 
   @spec changeset(Ecto.Changeset.t() | t, map) :: Ecto.Changeset.t() | no_return
   def changeset(model, params \\ %{}) do
-    cast(model, params, [:test, :my_model_id])
+    cast(model, params, [:id, :test, :my_model_id])
   end
 end
