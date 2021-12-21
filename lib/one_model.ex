@@ -159,7 +159,7 @@ defmodule OneModel do
       * `preload: list`
       * `order_by: atom | list`
       * `select: atom | list`
-        * Passing an atom will return the value of the given atom key 
+        * Passing an atom will return the value of the given atom key
         * Passing a list of keys will return the default schema with the values for the specified keys.
       * `limit: integer`
       """
@@ -548,7 +548,6 @@ defmodule OneModel do
           {[struct()], keyword()}
   def query_sort_and_paginate(model, params, defaults, opts \\ []) do
     query_params = query_params(params)
-
     query_fields = query_fields(params, defaults)
 
     list =
@@ -650,27 +649,53 @@ defmodule OneModel do
   #       the dependency which I tried.
   defp build_fields_list(list, %{include: include}, defaults) when include != [] do
     incl = include -- defaults.assoc_fields
-    select_fields(list, incl, include -- incl)
+    select_fields(list, incl, include -- incl, defaults.assoc_fields)
   end
 
   defp build_fields_list(list, %{exclude: exclude}, defaults) do
-    excl = exclude -- defaults.assoc_fields
-    select_fields(list, defaults.fields -- excl, defaults.assoc_fields -- exclude)
+    select_fields(
+      list,
+      defaults.fields -- exclude,
+      assoc_remove(defaults.assoc_fields, exclude),
+      defaults.assoc_fields
+    )
   end
-
-  # defp build_fields_list(list, _, _) do
-  #   list
-  # end
 
   def do_sf(list, fields, assoc_fields) do
     select_fields(list, fields, assoc_fields)
   end
 
-  defp select_fields(list, fields, assoc_fields) do
+  defp select_fields(list, fields, assoc_fields, default_assoc_fields \\ [])
+
+  defp select_fields([], _, _, _) do
+    []
+  end
+
+  defp select_fields([first | _] = list, fields, assoc_fields, default_assoc_fields) do
+    associations =
+      case first do
+        %{__meta__: _, __struct__: schema} ->
+          :associations
+          |> schema.__schema__()
+          |> Enum.filter(&(&1 in fields))
+
+        _ ->
+          []
+      end
+
+    assoc =
+      Enum.reduce(default_assoc_fields, assoc_fields, fn value, acc ->
+        if assoc_key(value) in associations and not Enum.member?(acc, value),
+          do: [value | acc],
+          else: acc
+      end)
+
+    fields = Enum.reject(fields, &(&1 in associations))
+
     Enum.map(list, fn item ->
       %{}
       |> select_fields_fields(item, fields)
-      |> select_fields_assoc_fields(item, assoc_fields)
+      |> select_fields_assoc_fields(item, assoc)
     end)
   end
 
@@ -689,19 +714,39 @@ defmodule OneModel do
   end
 
   defp put_assoc_field(acc, nil, field) do
-    put_assoc_field(acc, %{}, field)
+    Map.put(acc, field, nil)
   end
 
   defp put_assoc_field(acc, item, field) when is_atom(field) do
-    Map.put(acc, field, Map.get(item, field))
+    case Map.get(item, field) do
+      %Ecto.Association.NotLoaded{} -> acc
+      value -> Map.put(acc, field, value)
+    end
   end
 
   defp put_assoc_field(acc, item, {field, list}) when is_list(list) do
-    Map.put(acc, field, select_fields_assoc_fields(%{}, Map.get(item, field), list))
+    case Map.get(item, field) do
+      %Ecto.Association.NotLoaded{} -> acc
+      nil -> Map.put(acc, field, nil)
+      value -> Map.put(acc, field, select_fields_assoc_fields(%{}, value, list))
+    end
   end
 
   defp put_assoc_field(acc, item, list) when is_list(list) do
     Enum.reduce(list, acc, &put_assoc_field(&2, item, &1))
+  end
+
+  defp assoc_key({key, _}), do: key
+  defp assoc_key(key), do: key
+
+  defp assoc_remove(defaults, exclude) do
+    List.foldr(defaults, [], fn
+      {key, _} = item, acc ->
+        if key in exclude, do: acc, else: [item | acc]
+
+      key, acc ->
+        if key in exclude, do: acc, else: [key | acc]
+    end)
   end
 
   @doc """
@@ -889,7 +934,7 @@ defmodule OneModel do
   Allows nil, integers, and strings to be converted with the following behaviour:
 
   * integer - pass the value unchanged.
-  * binary - Attempt to convert it by parsing its float representation then rounding. 
+  * binary - Attempt to convert it by parsing its float representation then rounding.
   If it's not a valid number (float), a warning will be logged and return 0
   * nil - Return 0
 

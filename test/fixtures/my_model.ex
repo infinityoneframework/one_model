@@ -1,5 +1,10 @@
 defmodule OneModel.MyModel do
-  # @type t :: OneModel.Schema.MyModel.t()
-  # use OneModel, schema: OneModel.Schema.MyModel, repo: OneModel.TestRepo, t: true
-  use OneModel, schema: OneModel.Schema.MyModel, repo: OneModel.TestRepo
+  use OneModel,
+    schema: OneModel.Schema.MyModel,
+    repo: OneModel.TestRepoMock,
+    default_fields: ~w(id test)a,
+    default_assoc_fields: [
+      :user,
+      my_assoc: ~w(id one two)a
+    ]
 end
