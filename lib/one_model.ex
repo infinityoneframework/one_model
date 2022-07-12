@@ -203,7 +203,7 @@ defmodule OneModel do
           #{@schema}.list_by(field1: value1, select: :field2)
           #{@schema}.list_by(field2: value2, select: [:field1, :field3], limit: 2)
       """
-      @spec list_by(keyword()) :: [t()]
+      @spec list_by(keyword()) :: [t()] | [any()]
       def list_by(opts) do
         opts
         |> Keyword.put_new(:order_by, :inserted_at)
@@ -219,32 +219,39 @@ defmodule OneModel do
         {expressions, opts} = Keyword.split(opts, ~w(select order_by preload limit)a)
 
         opts
-        |> Enum.reduce(@schema, fn {k, v}, query ->
-          where(query, [b], field(b, ^k) == ^v)
-        end)
+        |> Enum.reduce(@schema, &do_where/2)
         |> do_order(expressions[:order_by])
         |> do_preload(expressions[:preload])
         |> do_select(expressions[:select])
         |> do_limit(expressions[:limit])
       end
 
+      defp do_where({k, nil}, query), do: where(query, [b], is_nil(field(b, ^k)))
+      defp do_where({k, v}, query), do: where(query, [b], field(b, ^k) == ^v)
+
       defp do_order(query, nil), do: query
       defp do_order(query, false), do: query
       defp do_order(query, []), do: query
-      defp do_order(query, order), do: order_by(query, ^order)
+
+      defp do_order(query, order) when is_list(order) or is_atom(order),
+        do: order_by(query, ^order)
 
       defp do_preload(query, nil), do: query
       defp do_preload(query, false), do: query
       defp do_preload(query, []), do: query
-      defp do_preload(query, preload), do: preload(query, ^preload)
+
+      defp do_preload(query, preload) when is_list(preload) or is_atom(preload),
+        do: preload(query, ^preload)
 
       defp do_select(query, nil), do: query
       defp do_select(query, []), do: query
+      defp do_select(query, keys) when is_list(keys), do: select(query, ^keys)
+      defp do_select(query, true), do: select(query, true)
+      defp do_select(query, false), do: select(query, false)
       defp do_select(query, key) when is_atom(key), do: select(query, [b], field(b, ^key))
-      defp do_select(query, keys), do: select(query, ^keys)
 
       defp do_limit(query, nil), do: query
-      defp do_limit(query, limit), do: limit(query, ^limit)
+      defp do_limit(query, limit) when is_integer(limit), do: limit(query, ^limit)
 
       @doc """
       Get a single #{@schema}.
@@ -259,7 +266,7 @@ defmodule OneModel do
       Passing an atom will return the value of the given atom key.
       Passing a list of keys will return the default schema with the values for the specified keys.
       """
-      @spec get(id(), keyword()) :: t() | nil
+      @spec get(id(), keyword()) :: t() | nil | any()
       def get(id, opts) do
         opts |> Keyword.put(:id, id) |> get_by_query() |> @repo.one()
       end
@@ -267,7 +274,7 @@ defmodule OneModel do
       @spec get(id()) :: t() | nil
       def get(id), do: @repo.get(@schema, id)
 
-      @spec get!(id(), keyword()) :: t() | no_return
+      @spec get!(id(), keyword()) :: t() | no_return | any()
       def get!(id, opts) do
         opts |> Keyword.put(:id, id) |> get_by_query() |> @repo.one!()
       end
@@ -275,23 +282,22 @@ defmodule OneModel do
       @spec get!(id()) :: t() | no_return
       def get!(id), do: @repo.get!(@schema, id)
 
-      @spec get_by(keyword()) :: t() | nil
+      @spec get_by(keyword()) :: t() | nil | any()
       def get_by(opts) do
         opts |> get_by_query() |> @repo.one()
       end
 
-      @spec get_by!(keyword()) :: t() | no_return
+      @spec get_by!(keyword()) :: t() | no_return | any()
       def get_by!(opts) do
         opts |> get_by_query() |> @repo.one!()
       end
 
+      @spec get_by_query(keyword()) :: Ecto.Query.t()
       def get_by_query(opts) do
         {pre_sel, opts} = Keyword.split(opts, ~w(preload select)a)
 
         opts
-        |> Enum.reduce(@schema, fn {k, v}, query ->
-          where(query, [b], field(b, ^k) == ^v)
-        end)
+        |> Enum.reduce(@schema, &do_where/2)
         |> do_preload(pre_sel[:preload])
         |> do_select(pre_sel[:select])
       end
@@ -435,9 +441,7 @@ defmodule OneModel do
       @spec count_by(keyword() | map()) :: integer
       def count_by(clauses) do
         clauses
-        |> Enum.reduce(@schema, fn {k, v}, query ->
-          where(query, [b], field(b, ^k) == ^v)
-        end)
+        |> Enum.reduce(@schema, &do_where/2)
         |> select([b], count(b.id))
         |> @repo.one()
       end
