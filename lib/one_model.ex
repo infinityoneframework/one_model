@@ -163,7 +163,7 @@ defmodule OneModel do
         * Passing a list of keys will return the default schema with the values for the specified keys.
       * `limit: integer`
       """
-      @spec list(keyword()) :: any
+      @spec list(keyword()) :: list
       def list(opts \\ []) do
         @schema
         |> do_order(opts[:order_by])
@@ -203,7 +203,7 @@ defmodule OneModel do
           #{@schema}.list_by(field1: value1, select: :field2)
           #{@schema}.list_by(field2: value2, select: [:field1, :field3], limit: 2)
       """
-      @spec list_by(keyword()) :: any
+      @spec list_by(keyword()) :: list
       def list_by(opts) do
         opts
         |> Keyword.put_new(:order_by, :inserted_at)
