@@ -163,7 +163,7 @@ defmodule OneModel do
         * Passing a list of keys will return the default schema with the values for the specified keys.
       * `limit: integer`
       """
-      @spec list(keyword()) :: [t()]
+      @spec list(keyword()) :: any
       def list(opts \\ []) do
         @schema
         |> do_order(opts[:order_by])
@@ -203,7 +203,7 @@ defmodule OneModel do
           #{@schema}.list_by(field1: value1, select: :field2)
           #{@schema}.list_by(field2: value2, select: [:field1, :field3], limit: 2)
       """
-      @spec list_by(keyword()) :: [t()]
+      @spec list_by(keyword()) :: any
       def list_by(opts) do
         opts
         |> Keyword.put_new(:order_by, :inserted_at)
@@ -259,7 +259,7 @@ defmodule OneModel do
       Passing an atom will return the value of the given atom key.
       Passing a list of keys will return the default schema with the values for the specified keys.
       """
-      @spec get(id(), keyword()) :: t() | nil
+      @spec get(id(), keyword()) :: any
       def get(id, opts) do
         opts |> Keyword.put(:id, id) |> get_by_query() |> @repo.one()
       end
@@ -267,7 +267,7 @@ defmodule OneModel do
       @spec get(id()) :: t() | nil
       def get(id), do: @repo.get(@schema, id)
 
-      @spec get!(id(), keyword()) :: t() | no_return
+      @spec get!(id(), keyword()) :: any | no_return
       def get!(id, opts) do
         opts |> Keyword.put(:id, id) |> get_by_query() |> @repo.one!()
       end
@@ -275,12 +275,12 @@ defmodule OneModel do
       @spec get!(id()) :: t() | no_return
       def get!(id), do: @repo.get!(@schema, id)
 
-      @spec get_by(keyword()) :: t() | nil
+      @spec get_by(keyword()) :: any
       def get_by(opts) do
         opts |> get_by_query() |> @repo.one()
       end
 
-      @spec get_by!(keyword()) :: t() | no_return
+      @spec get_by!(keyword()) :: any | no_return
       def get_by!(opts) do
         opts |> get_by_query() |> @repo.one!()
       end
