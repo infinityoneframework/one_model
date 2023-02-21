@@ -161,6 +161,8 @@ defmodule OneModel do
       * `select: atom | list`
         * Passing an atom will return the value of the given atom key
         * Passing a list of keys will return the default schema with the values for the specified keys.
+      * `select_map: list`
+        * passing a list of keys will return a map with the selected keys
       * `limit: integer`
       """
       @spec list(keyword()) :: list
@@ -169,6 +171,7 @@ defmodule OneModel do
         |> do_order(opts[:order_by])
         |> do_preload(opts[:preload])
         |> do_select(opts[:select])
+        |> do_select_map(opts[:select_map])
         |> do_limit(opts[:limit])
         |> @repo.all()
       end
@@ -202,6 +205,7 @@ defmodule OneModel do
           #{@schema}.list_by(field1: value1, order_by: [asc: :field3])
           #{@schema}.list_by(field1: value1, select: :field2)
           #{@schema}.list_by(field2: value2, select: [:field1, :field3], limit: 2)
+          #{@schema}.list_by(field2: value2, select_map: [:field1, :field3], limit: 2)
       """
       @spec list_by(keyword()) :: list
       def list_by(opts) do
@@ -216,7 +220,7 @@ defmodule OneModel do
       """
       @spec list_by_query(keyword()) :: Ecto.Query.t()
       def list_by_query(opts) do
-        {expressions, opts} = Keyword.split(opts, ~w(select order_by preload limit)a)
+        {expressions, opts} = Keyword.split(opts, ~w(select select_map order_by preload limit)a)
 
         opts
         |> Enum.reduce(@schema, fn {k, v}, query ->
@@ -225,6 +229,7 @@ defmodule OneModel do
         |> do_order(expressions[:order_by])
         |> do_preload(expressions[:preload])
         |> do_select(expressions[:select])
+        |> do_select_map(expressions[:select_map])
         |> do_limit(expressions[:limit])
       end
 
@@ -242,6 +247,11 @@ defmodule OneModel do
       defp do_select(query, []), do: query
       defp do_select(query, key) when is_atom(key), do: select(query, [b], field(b, ^key))
       defp do_select(query, keys), do: select(query, ^keys)
+
+      defp do_select_map(query, nil), do: query
+      # Ecto raises with `select(query, [q], map(q, [])])`` so select empty map explicitly.
+      defp do_select_map(query, []), do: select(query, %{})
+      defp do_select_map(query, keys) when is_list(keys), do: select(query, [q], map(q, ^keys))
 
       defp do_limit(query, nil), do: query
       defp do_limit(query, limit), do: limit(query, ^limit)
@@ -286,7 +296,7 @@ defmodule OneModel do
       end
 
       def get_by_query(opts) do
-        {pre_sel, opts} = Keyword.split(opts, ~w(preload select)a)
+        {pre_sel, opts} = Keyword.split(opts, ~w(preload select select_map)a)
 
         opts
         |> Enum.reduce(@schema, fn {k, v}, query ->
@@ -294,6 +304,7 @@ defmodule OneModel do
         end)
         |> do_preload(pre_sel[:preload])
         |> do_select(pre_sel[:select])
+        |> do_select_map(pre_sel[:select_map])
       end
 
       @spec create ::
