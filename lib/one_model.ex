@@ -161,8 +161,7 @@ defmodule OneModel do
       * `select: atom | list`
         * Passing an atom will return the value of the given atom key
         * Passing a list of keys will return the default schema with the values for the specified keys.
-      * `select_map: atom | list`
-        * Passing an atom will return the value of the given atom key
+      * `select_map: list`
         * passing a list of keys will return a map with the selected keys
       * `limit: integer`
       """
@@ -250,9 +249,9 @@ defmodule OneModel do
       defp do_select(query, keys), do: select(query, ^keys)
 
       defp do_select_map(query, nil), do: query
-      defp do_select_map(query, []), do: query
-      defp do_select_map(query, key) when is_atom(key), do: select(query, [b], field(b, ^key))
-      defp do_select_map(query, keys), do: select(query, [q], map(q, ^keys))
+      # Ecto raises with `select(query, [q], map(q, [])])`` so select empty map explicitly.
+      defp do_select_map(query, []), do: select(query, %{})
+      defp do_select_map(query, keys) when is_list(keys), do: select(query, [q], map(q, ^keys))
 
       defp do_limit(query, nil), do: query
       defp do_limit(query, limit), do: limit(query, ^limit)
