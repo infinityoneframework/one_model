@@ -34,7 +34,7 @@ defmodule OneModel.MixProject do
   defp deps do
     [
       {:jason, "~> 1.0"},
-      {:ecto, "~> 2.1.6"},
+      {:ecto, "~> 3.3"},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:mox, "~> 1.0", only: :test},
       {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},

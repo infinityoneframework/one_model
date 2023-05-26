@@ -81,7 +81,7 @@ defmodule OneModelTest do
     assert changeset.errors == [
              test:
                {"should be at least %{count} character(s)",
-                [count: 3, validation: :length, min: 3]}
+                [count: 3, validation: :length, kind: :min, type: :string]}
            ]
   end
 
@@ -141,7 +141,7 @@ defmodule OneModelTest do
 
     test "get/2", %{my_models: [model | _]} do
       expect(TestRepoMock, :one, fn %{from: from, wheres: [%{expr: expr}]} ->
-        assert from == {"my_models", MyModelSchema}
+        assert from.source == {"my_models", MyModelSchema}
         assert expr == {:==, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}, {:^, [], [0]}]}
         model
       end)
@@ -156,7 +156,7 @@ defmodule OneModelTest do
 
     test "get!/2", %{my_models: [model | _]} do
       expect(TestRepoMock, :one!, fn %{from: from, wheres: [%{expr: expr}]} ->
-        assert from == {"my_models", MyModelSchema}
+        assert from.source == {"my_models", MyModelSchema}
         assert expr == {:==, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}, {:^, [], [0]}]}
         model
       end)
@@ -166,7 +166,7 @@ defmodule OneModelTest do
 
     test "get_by", %{my_models: [_, model2 | _] = models} do
       expect(TestRepoMock, :one, fn %{from: from, wheres: [%{expr: expr, params: params}]} ->
-        assert from == {"my_models", MyModelSchema}
+        assert from.source == {"my_models", MyModelSchema}
         assert expr == {:==, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [0]}]}
         assert params == [{model2.test, {0, :test}}]
 
@@ -178,7 +178,7 @@ defmodule OneModelTest do
 
     test "get_by!/1", %{my_models: [_, model2 | _] = models} do
       expect(TestRepoMock, :one!, fn %{from: from, wheres: [%{expr: expr, params: params}]} ->
-        assert from == {"my_models", MyModelSchema}
+        assert from.source == {"my_models", MyModelSchema}
         assert expr == {:==, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [0]}]}
         assert params == [{model2.test, {0, :test}}]
 
@@ -195,7 +195,7 @@ defmodule OneModelTest do
 
     test "list_by/1", %{my_models: [_, model2 | _] = models} do
       expect(TestRepoMock, :all, fn %{from: from, wheres: [%{expr: expr, params: params}]} ->
-        assert from == {"my_models", MyModelSchema}
+        assert from.source == {"my_models", MyModelSchema}
         assert expr == {:==, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [0]}]}
         assert params == [{model2.test, {0, :test}}]
 
@@ -209,10 +209,10 @@ defmodule OneModelTest do
                                       preloads: preloads,
                                       wheres: [%{expr: expr, params: params}]
                                     } ->
-        assert from == {"my_models", MyModelSchema}
+        assert from.source == {"my_models", MyModelSchema}
         assert expr == {:==, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [0]}]}
         assert params == [{model2.test, {0, :test}}]
-        assert preloads == [[:user]]
+        assert preloads == [:user]
 
         Enum.find(models, &(&1.test == model2.test))
       end)
@@ -222,7 +222,7 @@ defmodule OneModelTest do
 
     test "count/0" do
       expect(TestRepoMock, :one, fn %{from: from, select: %{expr: expr}} ->
-        assert from == {"my_models", MyModelSchema}
+        assert from.source == {"my_models", MyModelSchema}
         assert expr == {:count, [], [{{:., [], [{:&, [], [0]}, :id]}, [], []}]}
         1
       end)
@@ -248,7 +248,7 @@ defmodule OneModelTest do
                  }
                ]
 
-        assert from == {"my_models", MyModelSchema}
+        assert from.source == {"my_models", MyModelSchema}
         1
       end)
 
@@ -269,7 +269,9 @@ defmodule OneModelTest do
     end
 
     test "one/1", %{my_models: [model | _] = models} do
-      expect(TestRepoMock, :one, fn %{from: {"my_models", MyModelSchema}, limit: %{expr: 1}} ->
+      expect(TestRepoMock, :one, fn %{from: from, limit: limit} ->
+        assert from.source == {"my_models", MyModelSchema}
+        assert limit.expr == 1
         hd(models)
       end)
 
@@ -294,7 +296,7 @@ defmodule OneModelTest do
                assert changeset.errors == [
                         {:test,
                          {"should be at least %{count} character(s)",
-                          [count: 3, validation: :length, min: 3]}}
+                          [count: 3, validation: :length, kind: :min, type: :string]}}
                       ]
              end) == ""
     end
@@ -312,7 +314,7 @@ defmodule OneModelTest do
       assert changeset.errors == [
                {:test,
                 {"should be at least %{count} character(s)",
-                 [count: 3, validation: :length, min: 3]}}
+                 [count: 3, validation: :length, kind: :min, type: :string]}}
              ]
     end
   end
@@ -634,7 +636,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                expr:
@@ -657,7 +659,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                op: :and,
@@ -680,7 +682,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                op: :and,
@@ -703,7 +705,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                op: :and,
@@ -726,7 +728,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                op: :and,
@@ -749,7 +751,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                op: :and,
@@ -772,7 +774,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                op: :and,
@@ -795,7 +797,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                op: :and,
@@ -817,7 +819,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                op: :and,
@@ -845,7 +847,7 @@ defmodule OneModelTest do
       %{from: from, wheres: [where]} =
         Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
 
-      assert from == {"my_models", MyModelSchema}
+      assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
                op: :and,
