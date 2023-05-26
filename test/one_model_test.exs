@@ -43,21 +43,21 @@ defmodule OneModelTest do
   end
 
   test "create!" do
-    expect(TestRepoMock, :insert!, fn changeset ->
+    expect(TestRepoMock, :insert, fn changeset ->
       assert changeset.valid?
       assert changeset.changes == %{test: "abc"}
-      Map.merge(changeset.data, changeset.changes)
+      {:ok, Map.merge(changeset.data, changeset.changes)}
     end)
 
     model = MyModel.create!(%{test: "abc"})
     assert model.test == "abc"
 
-    expect(TestRepoMock, :insert!, fn changeset ->
+    expect(TestRepoMock, :insert, fn changeset ->
       refute changeset.valid?
-      nil
+      {:error, changeset}
     end)
 
-    refute MyModel.create!(%{})
+    assert_raise(Ecto.InvalidChangesetError, fn -> MyModel.create!(%{}) end)
   end
 
   test "update" do
@@ -88,19 +88,19 @@ defmodule OneModelTest do
   test "update!" do
     model = MyModel.new(test: "abc")
 
-    expect(TestRepoMock, :update!, fn changeset ->
-      Map.merge(changeset.data, changeset.changes)
+    expect(TestRepoMock, :update, fn changeset ->
+      {:ok, Map.merge(changeset.data, changeset.changes)}
     end)
 
     model = MyModel.update!(model, %{test: "another"})
     assert model.test == "another"
 
-    expect(TestRepoMock, :update!, fn changeset ->
+    expect(TestRepoMock, :update, fn changeset ->
       refute changeset.valid?
-      nil
+      {:error, changeset}
     end)
 
-    refute MyModel.update!(model, %{test: "ab"})
+    assert_raise(Ecto.InvalidChangesetError, fn -> MyModel.update!(model, %{test: "ab"}) end)
   end
 
   test "delete/1" do
@@ -116,19 +116,19 @@ defmodule OneModelTest do
   test "delete!/1" do
     model = MyModel.new(test: "abc")
 
-    expect(TestRepoMock, :delete!, fn schema -> schema end)
+    expect(TestRepoMock, :delete, fn schema -> {:ok, schema} end)
     assert MyModel.delete!(model)
 
-    expect(TestRepoMock, :delete!, fn changeset -> changeset.data end)
+    expect(TestRepoMock, :delete, fn changeset -> {:ok, changeset.data} end)
     assert MyModel.delete!(MyModel.change(model, %{}))
 
-    expect(TestRepoMock, :delete!, fn changeset ->
+    expect(TestRepoMock, :delete, fn changeset ->
       refute changeset.valid?
-      nil
+      {:error, changeset}
     end)
 
     changeset = model |> MyModel.change(%{}) |> Map.put(:valid?, false)
-    refute MyModel.delete!(changeset)
+    assert_raise(Ecto.InvalidChangesetError, fn -> MyModel.delete!(changeset) end)
   end
 
   describe "access" do
@@ -609,23 +609,11 @@ defmodule OneModelTest do
 
       params = %{sort: Jason.encode!(%{id: 0})}
 
-      logs =
-        capture_log(fn ->
+      assert capture_log(fn ->
           {items, paging} = MyModel.query_sort_and_paginate(params)
           assert Enum.map(items, & &1.id) == [1, 2]
           assert Enum.sort(paging) == Enum.sort(offset: 0, count: 2, total: 2)
-        end)
-        |> String.split("\n", trim: true)
-
-      logs =
-        logs
-        |> Enum.with_index()
-        |> List.foldr([], fn {log, i}, acc ->
-          if Integer.is_odd(i), do: [log | acc], else: acc
-        end)
-
-      assert length(logs) == 3
-      Enum.each(logs, &(&1 =~ "invalid order field: 0"))
+        end) =~ "invalid order field: 0"
     end
   end
 
