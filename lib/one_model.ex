@@ -153,6 +153,15 @@ defmodule OneModel do
 
       @doc """
       Get a list of #{@schema}'s.
+      """
+      @spec list() :: [t]
+      def list() do
+        @schema
+        |> @repo.all()
+      end
+
+      @doc """
+      Get a list of #{@schema}'s.
 
       ## Options
 
@@ -165,8 +174,8 @@ defmodule OneModel do
         * passing a list of keys will return a map with the selected keys
       * `limit: integer`
       """
-      @spec list(keyword()) :: list
-      def list(opts \\ []) do
+      @spec list(keyword()) :: [t] | [term]
+      def list(opts) do
         @schema
         |> do_order(opts[:order_by])
         |> do_preload(opts[:preload])
@@ -328,16 +337,17 @@ defmodule OneModel do
         create(change(attrs))
       end
 
-      @spec create! :: t() | no_return
-      def create!, do: create!(%{})
-
       @spec create!(Ecto.Changeset.t() | map()) :: t() | no_return
-      def create!(%Ecto.Changeset{} = changeset) do
-        @repo.insert!(changeset)
-      end
+      def create!(params \\ %{})
 
-      def create!(%{} = attrs) do
-        create!(change(attrs))
+      def create!(params) do
+        case create(params) do
+          {:ok, schema} ->
+            schema
+
+          {:error, changeset} ->
+            raise Ecto.InvalidChangesetError, changeset: changeset, action: :insert
+        end
       end
 
       @spec update(Ecto.Changeset.t()) ::
@@ -358,7 +368,13 @@ defmodule OneModel do
 
       @spec update!(Ecto.Changeset.t()) :: t() | no_return
       def update!(%Ecto.Changeset{} = changeset) do
-        @repo.update!(changeset)
+        case __MODULE__.update(changeset) do
+          {:ok, schema} ->
+            schema
+
+          {:error, changeset} ->
+            raise Ecto.InvalidChangesetError, changeset: changeset, action: :update
+        end
       end
 
       @spec update!(t(), map()) :: t() | no_return
@@ -382,23 +398,21 @@ defmodule OneModel do
         @repo.delete(changeset)
       end
 
-      def delete(id), do: id |> get() |> delete()
+      def delete(id), do: id |> get() |> change() |> delete()
 
       @doc """
-      Delete the #{@schema} given a the struct, or raise an exception.
+      Delete an object, or raise an exception.
       """
       @spec delete!(Ecto.Changeset.t() | t() | id()) :: t() | no_return
-      def delete!(%@schema{} = schema), do: schema |> change() |> delete!()
+      def delete!(params) do
+        case delete(params) do
+          {:ok, schema} ->
+            schema
 
-      @doc """
-      Delete the #{@schema} given a changeset, or raise an exception.
-      """
-      def delete!(%Ecto.Changeset{} = changeset), do: @repo.delete!(changeset)
-
-      @doc """
-      Delete the given #{@schema} by id, or raise an exception.
-      """
-      def delete!(id), do: id |> get() |> delete!()
+          {:error, changeset} ->
+            raise Ecto.InvalidChangesetError, changeset: changeset, action: :delete
+        end
+      end
 
       @doc """
       Delete all #{@schema}'s.
@@ -456,7 +470,7 @@ defmodule OneModel do
       @doc """
       Preload a #{@schema}.
       """
-      @spec preload_schema(t() | [t()], list()) :: t() | [t()]
+      @spec preload_schema(t() | [t()], atom | list()) :: t() | [t()]
       def preload_schema(schema, preload), do: @repo.preload(schema, preload)
 
       @doc """
@@ -528,6 +542,8 @@ defmodule OneModel do
                      update: 2,
                      update!: 1,
                      update!: 2,
+                     create: 0,
+                     create!: 0,
                      create: 1,
                      create!: 1,
                      get_by: 1,
@@ -537,8 +553,9 @@ defmodule OneModel do
                      get!: 2,
                      get!: 1,
                      list: 0,
-                     change: 2,
+                     list: 1,
                      change: 1,
+                     change: 2,
                      delete_all: 0,
                      preload_schema: 2,
                      count: 0,
@@ -778,12 +795,12 @@ defmodule OneModel do
   end
 
   def paging_stats(params, fun) do
-    offset = params |> query_params() |> Map.get(:offset, 0)
+    offset = %{} |> offset_params(params) |> Map.get(:offset, 0)
     Keyword.put(fun.(), :offset, offset)
   end
 
   def get_query_count(model, params, opts \\ []) do
-    query_params = query_params(params)
+    query_params = query_params(%{}, params)
 
     opts
     |> Keyword.drop(~w(order_by preload)a)
