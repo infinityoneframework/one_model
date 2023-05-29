@@ -154,7 +154,7 @@ defmodule OneModel do
       @doc """
       Get a list of #{@schema}'s.
       """
-      @spec list() :: list
+      @spec list() :: [t]
       def list() do
         @schema
         |> @repo.all()
@@ -174,7 +174,7 @@ defmodule OneModel do
         * passing a list of keys will return a map with the selected keys
       * `limit: integer`
       """
-      @spec list(keyword()) :: list
+      @spec list(keyword()) :: [t] | [term]
       def list(opts) do
         @schema
         |> do_order(opts[:order_by])
@@ -398,19 +398,14 @@ defmodule OneModel do
         @repo.delete(changeset)
       end
 
-      def delete(id), do: id |> get() |> delete()
+      def delete(id), do: id |> get() |> change() |> delete()
 
       @doc """
-      Delete the #{@schema} given a the struct, or raise an exception.
+      Delete an object, or raise an exception.
       """
       @spec delete!(Ecto.Changeset.t() | t() | id()) :: t() | no_return
-      def delete!(%@schema{} = schema), do: schema |> change() |> delete!()
-
-      @doc """
-      Delete the #{@schema} given a changeset, or raise an exception.
-      """
-      def delete!(%Ecto.Changeset{} = changeset) do
-        case delete(changeset) do
+      def delete!(params) do
+        case delete(params) do
           {:ok, schema} ->
             schema
 
@@ -418,11 +413,6 @@ defmodule OneModel do
             raise Ecto.InvalidChangesetError, changeset: changeset, action: :delete
         end
       end
-
-      @doc """
-      Delete the given #{@schema} by id, or raise an exception.
-      """
-      def delete!(id), do: id |> get() |> change() |> delete!()
 
       @doc """
       Delete all #{@schema}'s.
