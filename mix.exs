@@ -4,7 +4,7 @@ defmodule OneModel.MixProject do
   def project do
     [
       app: :one_model,
-      version: "0.4.0",
+      version: "0.4.1",
       elixir: "~> 1.6",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -34,7 +34,7 @@ defmodule OneModel.MixProject do
   defp deps do
     [
       {:jason, "~> 1.0"},
-      {:ecto, "~> 2.1.6"},
+      {:ecto, "~> 3.3"},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:mox, "~> 1.0", only: :test},
       {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
