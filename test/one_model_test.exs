@@ -610,10 +610,10 @@ defmodule OneModelTest do
       params = %{sort: Jason.encode!(%{id: 0})}
 
       assert capture_log(fn ->
-          {items, paging} = MyModel.query_sort_and_paginate(params)
-          assert Enum.map(items, & &1.id) == [1, 2]
-          assert Enum.sort(paging) == Enum.sort(offset: 0, count: 2, total: 2)
-        end) =~ "invalid order field: 0"
+               {items, paging} = MyModel.query_sort_and_paginate(params)
+               assert Enum.map(items, & &1.id) == [1, 2]
+               assert Enum.sort(paging) == Enum.sort(offset: 0, count: 2, total: 2)
+             end) =~ "invalid order field: 0"
     end
   end
 
