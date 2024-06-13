@@ -4,8 +4,8 @@ defmodule OneModel.MixProject do
   def project do
     [
       app: :one_model,
-      version: "0.4.2",
-      elixir: "~> 1.6",
+      version: "0.5.0",
+      elixir: "~> 1.11",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
@@ -35,9 +35,11 @@ defmodule OneModel.MixProject do
     [
       {:jason, "~> 1.0"},
       {:ecto, "~> 3.3"},
+      {:ecto_sql, "~> 3.0", only: :test},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:mox, "~> 1.0", only: :test},
       {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
+      {:postgrex, "~> 0.0", only: :test},
       {:excoveralls, "~> 0.10", only: :test}
     ]
   end

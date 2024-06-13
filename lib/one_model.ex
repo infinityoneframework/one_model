@@ -839,7 +839,7 @@ defmodule OneModel do
         Map.put(params, :query, map)
 
       error ->
-        Logger.warn("error: #{inspect(error)}")
+        Logger.warning("error: #{inspect(error)}")
         params
     end
   end
@@ -902,7 +902,7 @@ defmodule OneModel do
   defp order(-1), do: :desc
 
   defp order(other) do
-    Logger.warn("invalid order field: #{other}")
+    Logger.warning("invalid order field: #{other}")
     :asc
   end
 
@@ -988,7 +988,7 @@ defmodule OneModel do
         round(value)
 
       _ ->
-        Logger.warn("invalid integer string '#{string}'")
+        Logger.warning("invalid integer string '#{string}'")
         0
     end
   end
