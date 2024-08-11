@@ -657,10 +657,10 @@ defmodule OneModel do
     do: where(builder, [c], fragment("? <= ?", field(c, ^field), ^value))
 
   defp build_query_filters(builder, field, value, "$ne"),
-    do: where(builder, [c], fragment("? != ?", field(c, ^field), ^value))
+    do: where(builder, [c], field(c, ^field) != ^value)
 
   defp build_query_filters(builder, field, value, "$eq"),
-    do: where(builder, [c], fragment("? = ?", field(c, ^field), ^value))
+    do: where(builder, [c], field(c, ^field) == ^value)
 
   defp build_query_filters(builder, field, value, "$in"),
     do: where(builder, [c], field(c, ^field) in ^value)
