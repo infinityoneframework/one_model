@@ -623,9 +623,6 @@ defmodule OneModel do
 
   def add_query_fields(query, %{query: query_fields}) do
     Enum.reduce(query_fields, query, fn
-      {field, %{"$regex" => _} = value}, acc ->
-        query_field_list(acc, String.split(field, ",", trim: true), value)
-
       {field, %{} = map}, acc ->
         Enum.reduce(map, acc, fn {key, value}, acc ->
           query_field_list(acc, field, {value, key})
@@ -655,16 +652,20 @@ defmodule OneModel do
     where(query, ^fields)
   end
 
-  defp build_query_filter(acc, field, %{"$regex" => regex}) do
-    dynamic([c], fragment("? OR ?", ^acc, fragment("? REGEXP ?", field(c, ^field), ^regex)))
-  end
-
   defp build_query_filter(acc, field, nil) do
     dynamic([c], fragment("? OR ?", ^acc, is_nil(field(c, ^field))))
   end
 
   defp build_query_filter(acc, field, text) when is_binary(text) do
     dynamic([c], fragment("? OR ?", ^acc, like(fragment("LOWER(?)", field(c, ^field)), ^text)))
+  end
+
+  defp build_query_filter(acc, field, {value, "$regex"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? REGEXP ?", field(c, ^field), ^value)))
+  end
+
+  defp build_query_filter(acc, field, {value, "$nregex"}) do
+    dynamic([c], fragment("? OR ?", ^acc, not fragment("? REGEXP ?", field(c, ^field), ^value)))
   end
 
   defp build_query_filter(acc, field, {value, "$gt"}) do

@@ -653,6 +653,47 @@ defmodule OneModelTest do
              }
     end
 
+    test "$nregex" do
+      query_fields = %{"test" => %{"$nregex" => "t"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {:^, [], [0]},
+                   raw: " OR ",
+                   expr: {
+                     :not,
+                     [],
+                     [
+                       {
+                         :fragment,
+                         [],
+                         [
+                           raw: "",
+                           expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                           raw: " REGEXP ",
+                           expr: {:^, [], [1]},
+                           raw: ""
+                         ]
+                       }
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [{false, :any}, {"t", :any}]
+             }
+    end
+
     test "$eq" do
       query_fields = %{"test" => %{"$eq" => "test"}}
 
@@ -1030,6 +1071,68 @@ defmodule OneModelTest do
              }
     end
 
+    test "multiple (and) query" do
+      query_fields = %{"test" => "foo", "name" => %{"$regex" => "bar"}}
+
+      %{from: from, wheres: [where1, where2]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where1, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {:^, [], [0]},
+                   raw: " OR ",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       {:raw, ""},
+                       {
+                         :expr,
+                         {{:., [], [{:&, [], [0]}, :name]}, [], []}
+                       },
+                       {:raw, " REGEXP "},
+                       {:expr, {:^, [], [1]}},
+                       {:raw, ""}
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [{false, :any}, {"bar", :any}]
+             }
+
+      assert Map.take(where2, ~w(expr op params)a) == %{
+               expr:
+                 {:fragment, [],
+                  [
+                    raw: "",
+                    expr: {:^, [], [0]},
+                    raw: " OR ",
+                    expr:
+                      {:like, [],
+                       [
+                         {:fragment, [],
+                          [
+                            raw: "LOWER(",
+                            expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                            raw: ")"
+                          ]},
+                         {:^, [], [1]}
+                       ]},
+                    raw: ""
+                  ]},
+               op: :and,
+               params: [{false, :any}, {"foo", :string}]
+             }
+    end
+
     test "no query" do
       assert OneModel.add_query_fields(MyModelSchema, %{}) == MyModelSchema
     end
@@ -1153,6 +1256,73 @@ defmodule OneModelTest do
                   ]},
                op: :and,
                params: [{false, :any}, {"t", :any}, {"t", :any}, {"t", :any}]
+             }
+    end
+
+    test "$nregex 2" do
+      query_fields = %{"test,name" => %{"$nregex" => "t"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       raw: "",
+                       expr: {:^, [], [0]},
+                       raw: " OR ",
+                       expr: {
+                         :not,
+                         [],
+                         [
+                           {
+                             :fragment,
+                             [],
+                             [
+                               raw: "",
+                               expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                               raw: " REGEXP ",
+                               expr: {:^, [], [1]},
+                               raw: ""
+                             ]
+                           }
+                         ]
+                       },
+                       raw: ""
+                     ]
+                   },
+                   raw: " OR ",
+                   expr: {
+                     :not,
+                     [],
+                     [
+                       {
+                         :fragment,
+                         [],
+                         [
+                           raw: "",
+                           expr: {{:., [], [{:&, [], [0]}, :name]}, [], []},
+                           raw: " REGEXP ",
+                           expr: {:^, [], [2]},
+                           raw: ""
+                         ]
+                       }
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [{false, :any}, {"t", :any}, {"t", :any}]
              }
     end
 
