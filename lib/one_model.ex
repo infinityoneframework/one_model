@@ -623,20 +623,16 @@ defmodule OneModel do
 
   def add_query_fields(query, %{query: query_fields}) do
     Enum.reduce(query_fields, query, fn
-      {field, %{"$regex" => regex}}, acc ->
-        field = String.to_existing_atom(field)
-        where(acc, [c], fragment("? REGEXP ?", field(c, ^field), ^regex))
+      {field, %{"$regex" => _} = value}, acc ->
+        query_field_list(acc, String.split(field, ",", trim: true), value)
 
       {field, %{} = map}, acc ->
-        field = String.to_existing_atom(field)
-
         Enum.reduce(map, acc, fn {key, value}, acc ->
-          build_query_filters(acc, field, value, key)
+          query_field_list(acc, field, {value, key})
         end)
 
       {field, value}, acc when is_binary(field) ->
-        field = String.to_existing_atom(field)
-        where(acc, [c], like(fragment("LOWER(?)", field(c, ^field)), ^value))
+        query_field_list(acc, field, value)
     end)
   end
 
@@ -644,29 +640,63 @@ defmodule OneModel do
     query
   end
 
-  defp build_query_filters(builder, field, value, "$gt"),
-    do: where(builder, [c], fragment("? > ?", field(c, ^field), ^value))
+  defp query_field_list(query, fields, expr) when is_binary(fields) do
+    query_field_list(query, String.split(fields, ",", trim: true), expr)
+  end
 
-  defp build_query_filters(builder, field, value, "$gte"),
-    do: where(builder, [c], fragment("? >= ?", field(c, ^field), ^value))
+  defp query_field_list(query, ["" <> _ | _] = fields,  expr) do
+    fields =
+      fields
+      |> Enum.reduce(false, fn field, acc ->
+        field = String.to_existing_atom(field)
+        build_query_filter(acc, field, expr)
+      end)
 
-  defp build_query_filters(builder, field, value, "$lt"),
-    do: where(builder, [c], fragment("? < ?", field(c, ^field), ^value))
+    where(query, ^fields)
+  end
 
-  defp build_query_filters(builder, field, value, "$lte"),
-    do: where(builder, [c], fragment("? <= ?", field(c, ^field), ^value))
+  defp build_query_filter(acc, field, %{"$regex" => regex}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? REGEXP ?", field(c, ^field), ^regex)))
+  end
 
-  defp build_query_filters(builder, field, value, "$ne"),
-    do: where(builder, [c], field(c, ^field) != ^value)
+  defp build_query_filter(acc, field, text) when is_binary(text) do
+    dynamic([c], fragment("? OR ?", ^acc, like(fragment("LOWER(?)", field(c, ^field)), ^text)))
+  end
 
-  defp build_query_filters(builder, field, value, "$eq"),
-    do: where(builder, [c], field(c, ^field) == ^value)
+  defp build_query_filter(acc, field, {value, "$gt"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? > ?", field(c, ^field), ^value)))
+  end
 
-  defp build_query_filters(builder, field, value, "$in"),
-    do: where(builder, [c], field(c, ^field) in ^value)
+  defp build_query_filter(acc, field, {value, "$gte"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? >= ?", field(c, ^field), ^value)))
+  end
 
-  defp build_query_filters(builder, field, value, "$nin"),
-    do: where(builder, [c], field(c, ^field) not in ^value)
+  defp build_query_filter(acc, field, {value, "$lt"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? < ?", field(c, ^field), ^value)))
+  end
+
+  defp build_query_filter(acc, field, {value, "$lte"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? <= ?", field(c, ^field), ^value)))
+  end
+
+  defp build_query_filter(acc, field, {value, "$ne"}) do
+    dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) != ^value))
+  end
+
+  defp build_query_filter(acc, field, {nil, "$eq"}) do
+    dynamic([c], fragment("? OR ?", ^acc, is_nil(field(c, ^field))))
+  end
+  defp build_query_filter(acc, field, {value, "$eq"}) do
+    dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) == ^value))
+  end
+
+  defp build_query_filter(acc, field, {value, "$in"}) do
+    dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) in ^value))
+  end
+
+  defp build_query_filter(acc, field, {value, "$nin"}) do
+    dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) not in ^value))
+  end
 
   # TODO: This function currently processes the list fetched from the database
   #       and filters the fields given. This is not optimized. It would be
