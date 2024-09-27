@@ -644,7 +644,7 @@ defmodule OneModel do
     query_field_list(query, String.split(fields, ",", trim: true), expr)
   end
 
-  defp query_field_list(query, ["" <> _ | _] = fields,  expr) do
+  defp query_field_list(query, ["" <> _ | _] = fields, expr) do
     fields =
       fields
       |> Enum.reduce(false, fn field, acc ->
@@ -657,6 +657,10 @@ defmodule OneModel do
 
   defp build_query_filter(acc, field, %{"$regex" => regex}) do
     dynamic([c], fragment("? OR ?", ^acc, fragment("? REGEXP ?", field(c, ^field), ^regex)))
+  end
+
+  defp build_query_filter(acc, field, nil) do
+    dynamic([c], fragment("? OR ?", ^acc, is_nil(field(c, ^field))))
   end
 
   defp build_query_filter(acc, field, text) when is_binary(text) do
@@ -679,6 +683,10 @@ defmodule OneModel do
     dynamic([c], fragment("? OR ?", ^acc, fragment("? <= ?", field(c, ^field), ^value)))
   end
 
+  defp build_query_filter(acc, field, {nil, "$ne"}) do
+    dynamic([c], fragment("? OR ?", ^acc, not is_nil(field(c, ^field))))
+  end
+
   defp build_query_filter(acc, field, {value, "$ne"}) do
     dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) != ^value))
   end
@@ -686,6 +694,7 @@ defmodule OneModel do
   defp build_query_filter(acc, field, {nil, "$eq"}) do
     dynamic([c], fragment("? OR ?", ^acc, is_nil(field(c, ^field))))
   end
+
   defp build_query_filter(acc, field, {value, "$eq"}) do
     dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) == ^value))
   end
