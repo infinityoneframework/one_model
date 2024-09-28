@@ -536,6 +536,14 @@ defmodule OneModel do
         |> OneModel.fields_list(defaults)
       end
 
+      def order_by_callback(query, query_params) do
+        OneModel.add_sort(query, query_params)
+      end
+
+      def select_callback(query, _query_fields, _defaults) do
+        query
+      end
+
       defoverridable delete: 1,
                      delete!: 1,
                      update: 1,
@@ -568,7 +576,9 @@ defmodule OneModel do
                      query_fields: 1,
                      fields_list: 1,
                      get_query_count: 1,
-                     paging_stats: 2
+                     paging_stats: 2,
+                     order_by_callback: 2,
+                     select_callback: 3
     end
   end
 
@@ -583,7 +593,8 @@ defmodule OneModel do
       |> model.list_by_query()
       |> add_limit(query_params, defaults)
       |> add_offset(query_params)
-      |> add_sort(query_params)
+      |> model.order_by_callback(query_params)
+      |> model.select_callback(query_fields, defaults)
       |> add_query_fields(query_params)
       |> model.all()
       |> build_fields_list(query_fields, defaults)
@@ -611,13 +622,13 @@ defmodule OneModel do
     query
   end
 
-  defp add_sort(query, %{sort: sort}) do
+  def add_sort(query, %{sort: sort}) do
     Enum.reduce(sort, query, fn {name, order}, acc ->
       order_by(acc, [c], [{^order, field(c, ^name)}])
     end)
   end
 
-  defp add_sort(query, _) do
+  def add_sort(query, _) do
     query
   end
 
