@@ -536,6 +536,14 @@ defmodule OneModel do
         |> OneModel.fields_list(defaults)
       end
 
+      def order_by_callback(query, query_params) do
+        OneModel.add_sort(query, query_params)
+      end
+
+      def select_callback(query, _query_fields, _defaults) do
+        query
+      end
+
       defoverridable delete: 1,
                      delete!: 1,
                      update: 1,
@@ -568,7 +576,9 @@ defmodule OneModel do
                      query_fields: 1,
                      fields_list: 1,
                      get_query_count: 1,
-                     paging_stats: 2
+                     paging_stats: 2,
+                     order_by_callback: 2,
+                     select_callback: 3
     end
   end
 
@@ -583,7 +593,8 @@ defmodule OneModel do
       |> model.list_by_query()
       |> add_limit(query_params, defaults)
       |> add_offset(query_params)
-      |> add_sort(query_params)
+      |> model.order_by_callback(query_params)
+      |> model.select_callback(query_fields, defaults)
       |> add_query_fields(query_params)
       |> model.all()
       |> build_fields_list(query_fields, defaults)
@@ -611,32 +622,25 @@ defmodule OneModel do
     query
   end
 
-  defp add_sort(query, %{sort: sort}) do
+  def add_sort(query, %{sort: sort}) do
     Enum.reduce(sort, query, fn {name, order}, acc ->
       order_by(acc, [c], [{^order, field(c, ^name)}])
     end)
   end
 
-  defp add_sort(query, _) do
+  def add_sort(query, _) do
     query
   end
 
   def add_query_fields(query, %{query: query_fields}) do
     Enum.reduce(query_fields, query, fn
-      {field, %{"$regex" => regex}}, acc ->
-        field = String.to_existing_atom(field)
-        where(acc, [c], fragment("? REGEXP ?", field(c, ^field), ^regex))
-
       {field, %{} = map}, acc ->
-        field = String.to_existing_atom(field)
-
         Enum.reduce(map, acc, fn {key, value}, acc ->
-          build_query_filters(acc, field, value, key)
+          query_field_list(acc, field, {value, key})
         end)
 
       {field, value}, acc when is_binary(field) ->
-        field = String.to_existing_atom(field)
-        where(acc, [c], like(fragment("LOWER(?)", field(c, ^field)), ^value))
+        query_field_list(acc, field, value)
     end)
   end
 
@@ -644,29 +648,76 @@ defmodule OneModel do
     query
   end
 
-  defp build_query_filters(builder, field, value, "$gt"),
-    do: where(builder, [c], fragment("? > ?", field(c, ^field), ^value))
+  defp query_field_list(query, fields, expr) when is_binary(fields) do
+    query_field_list(query, String.split(fields, ",", trim: true), expr)
+  end
 
-  defp build_query_filters(builder, field, value, "$gte"),
-    do: where(builder, [c], fragment("? >= ?", field(c, ^field), ^value))
+  defp query_field_list(query, ["" <> _ | _] = fields, expr) do
+    fields =
+      fields
+      |> Enum.reduce(false, fn field, acc ->
+        field = String.to_existing_atom(field)
+        build_query_filter(acc, field, expr)
+      end)
 
-  defp build_query_filters(builder, field, value, "$lt"),
-    do: where(builder, [c], fragment("? < ?", field(c, ^field), ^value))
+    where(query, ^fields)
+  end
 
-  defp build_query_filters(builder, field, value, "$lte"),
-    do: where(builder, [c], fragment("? <= ?", field(c, ^field), ^value))
+  defp build_query_filter(acc, field, nil) do
+    dynamic([c], fragment("? OR ?", ^acc, is_nil(field(c, ^field))))
+  end
 
-  defp build_query_filters(builder, field, value, "$ne"),
-    do: where(builder, [c], field(c, ^field) != ^value)
+  defp build_query_filter(acc, field, text) when is_binary(text) do
+    dynamic([c], fragment("? OR ?", ^acc, like(fragment("LOWER(?)", field(c, ^field)), ^text)))
+  end
 
-  defp build_query_filters(builder, field, value, "$eq"),
-    do: where(builder, [c], field(c, ^field) == ^value)
+  defp build_query_filter(acc, field, {value, "$regex"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? REGEXP ?", field(c, ^field), ^value)))
+  end
 
-  defp build_query_filters(builder, field, value, "$in"),
-    do: where(builder, [c], field(c, ^field) in ^value)
+  defp build_query_filter(acc, field, {value, "$nregex"}) do
+    dynamic([c], fragment("? OR ?", ^acc, not fragment("? REGEXP ?", field(c, ^field), ^value)))
+  end
 
-  defp build_query_filters(builder, field, value, "$nin"),
-    do: where(builder, [c], field(c, ^field) not in ^value)
+  defp build_query_filter(acc, field, {value, "$gt"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? > ?", field(c, ^field), ^value)))
+  end
+
+  defp build_query_filter(acc, field, {value, "$gte"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? >= ?", field(c, ^field), ^value)))
+  end
+
+  defp build_query_filter(acc, field, {value, "$lt"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? < ?", field(c, ^field), ^value)))
+  end
+
+  defp build_query_filter(acc, field, {value, "$lte"}) do
+    dynamic([c], fragment("? OR ?", ^acc, fragment("? <= ?", field(c, ^field), ^value)))
+  end
+
+  defp build_query_filter(acc, field, {nil, "$ne"}) do
+    dynamic([c], fragment("? OR ?", ^acc, not is_nil(field(c, ^field))))
+  end
+
+  defp build_query_filter(acc, field, {value, "$ne"}) do
+    dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) != ^value))
+  end
+
+  defp build_query_filter(acc, field, {nil, "$eq"}) do
+    dynamic([c], fragment("? OR ?", ^acc, is_nil(field(c, ^field))))
+  end
+
+  defp build_query_filter(acc, field, {value, "$eq"}) do
+    dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) == ^value))
+  end
+
+  defp build_query_filter(acc, field, {value, "$in"}) do
+    dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) in ^value))
+  end
+
+  defp build_query_filter(acc, field, {value, "$nin"}) do
+    dynamic([c], fragment("? OR ?", ^acc, field(c, ^field) not in ^value))
+  end
 
   # TODO: This function currently processes the list fetched from the database
   #       and filters the fields given. This is not optimized. It would be

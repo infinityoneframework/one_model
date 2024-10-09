@@ -22,113 +22,115 @@ defmodule OneModelTest do
     {:ok, users: users, my_models: my_models}
   end
 
-  test "create" do
-    expect(TestRepoMock, :insert, fn changeset ->
-      assert changeset.valid?
-      assert changeset.changes == %{test: "abc"}
-      {:ok, Map.merge(changeset.data, changeset.changes)}
-    end)
+  describe "mutations" do
+    test "create" do
+      expect(TestRepoMock, :insert, fn changeset ->
+        assert changeset.valid?
+        assert changeset.changes == %{test: "abc"}
+        {:ok, Map.merge(changeset.data, changeset.changes)}
+      end)
 
-    {:ok, model} = MyModel.create(%{test: "abc"})
-    assert model.test == "abc"
+      {:ok, model} = MyModel.create(%{test: "abc"})
+      assert model.test == "abc"
 
-    expect(TestRepoMock, :insert, fn changeset ->
-      {:error, changeset}
-    end)
+      expect(TestRepoMock, :insert, fn changeset ->
+        {:error, changeset}
+      end)
 
-    {:error, changeset} = MyModel.create(%{})
+      {:error, changeset} = MyModel.create(%{})
 
-    refute changeset.valid?
-    assert changeset.errors == [test: {"can't be blank", [validation: :required]}]
-  end
-
-  test "create!" do
-    expect(TestRepoMock, :insert, fn changeset ->
-      assert changeset.valid?
-      assert changeset.changes == %{test: "abc"}
-      {:ok, Map.merge(changeset.data, changeset.changes)}
-    end)
-
-    model = MyModel.create!(%{test: "abc"})
-    assert model.test == "abc"
-
-    expect(TestRepoMock, :insert, fn changeset ->
       refute changeset.valid?
-      {:error, changeset}
-    end)
+      assert changeset.errors == [test: {"can't be blank", [validation: :required]}]
+    end
 
-    assert_raise(Ecto.InvalidChangesetError, fn -> MyModel.create!(%{}) end)
-  end
+    test "create!" do
+      expect(TestRepoMock, :insert, fn changeset ->
+        assert changeset.valid?
+        assert changeset.changes == %{test: "abc"}
+        {:ok, Map.merge(changeset.data, changeset.changes)}
+      end)
 
-  test "update" do
-    model = MyModel.new(test: "abc")
+      model = MyModel.create!(%{test: "abc"})
+      assert model.test == "abc"
 
-    expect(TestRepoMock, :update, fn changeset ->
-      {:ok, Map.merge(changeset.data, changeset.changes)}
-    end)
+      expect(TestRepoMock, :insert, fn changeset ->
+        refute changeset.valid?
+        {:error, changeset}
+      end)
 
-    {:ok, model} = MyModel.update(model, %{test: "another"})
-    assert model.test == "another"
+      assert_raise(Ecto.InvalidChangesetError, fn -> MyModel.create!(%{}) end)
+    end
 
-    expect(TestRepoMock, :update, fn changeset ->
-      {:error, changeset}
-    end)
+    test "update" do
+      model = MyModel.new(test: "abc")
 
-    {:error, changeset} = MyModel.update(model, %{test: "ab"})
+      expect(TestRepoMock, :update, fn changeset ->
+        {:ok, Map.merge(changeset.data, changeset.changes)}
+      end)
 
-    refute changeset.valid?
+      {:ok, model} = MyModel.update(model, %{test: "another"})
+      assert model.test == "another"
 
-    assert changeset.errors == [
-             test:
-               {"should be at least %{count} character(s)",
-                [count: 3, validation: :length, kind: :min, type: :string]}
-           ]
-  end
+      expect(TestRepoMock, :update, fn changeset ->
+        {:error, changeset}
+      end)
 
-  test "update!" do
-    model = MyModel.new(test: "abc")
+      {:error, changeset} = MyModel.update(model, %{test: "ab"})
 
-    expect(TestRepoMock, :update, fn changeset ->
-      {:ok, Map.merge(changeset.data, changeset.changes)}
-    end)
-
-    model = MyModel.update!(model, %{test: "another"})
-    assert model.test == "another"
-
-    expect(TestRepoMock, :update, fn changeset ->
       refute changeset.valid?
-      {:error, changeset}
-    end)
 
-    assert_raise(Ecto.InvalidChangesetError, fn -> MyModel.update!(model, %{test: "ab"}) end)
-  end
+      assert changeset.errors == [
+               test:
+                 {"should be at least %{count} character(s)",
+                  [count: 3, validation: :length, kind: :min, type: :string]}
+             ]
+    end
 
-  test "delete/1" do
-    model = MyModel.new(test: "abc")
+    test "update!" do
+      model = MyModel.new(test: "abc")
 
-    expect(TestRepoMock, :delete, fn schema -> {:ok, schema} end)
-    {:ok, _schema} = MyModel.delete(model)
+      expect(TestRepoMock, :update, fn changeset ->
+        {:ok, Map.merge(changeset.data, changeset.changes)}
+      end)
 
-    expect(TestRepoMock, :delete, fn changeset -> {:ok, changeset.data} end)
-    {:ok, _schema} = MyModel.delete(MyModel.change(model, %{}))
-  end
+      model = MyModel.update!(model, %{test: "another"})
+      assert model.test == "another"
 
-  test "delete!/1" do
-    model = MyModel.new(test: "abc")
+      expect(TestRepoMock, :update, fn changeset ->
+        refute changeset.valid?
+        {:error, changeset}
+      end)
 
-    expect(TestRepoMock, :delete, fn schema -> {:ok, schema} end)
-    assert MyModel.delete!(model)
+      assert_raise(Ecto.InvalidChangesetError, fn -> MyModel.update!(model, %{test: "ab"}) end)
+    end
 
-    expect(TestRepoMock, :delete, fn changeset -> {:ok, changeset.data} end)
-    assert MyModel.delete!(MyModel.change(model, %{}))
+    test "delete/1" do
+      model = MyModel.new(test: "abc")
 
-    expect(TestRepoMock, :delete, fn changeset ->
-      refute changeset.valid?
-      {:error, changeset}
-    end)
+      expect(TestRepoMock, :delete, fn schema -> {:ok, schema} end)
+      {:ok, _schema} = MyModel.delete(model)
 
-    changeset = model |> MyModel.change(%{}) |> Map.put(:valid?, false)
-    assert_raise(Ecto.InvalidChangesetError, fn -> MyModel.delete!(changeset) end)
+      expect(TestRepoMock, :delete, fn changeset -> {:ok, changeset.data} end)
+      {:ok, _schema} = MyModel.delete(MyModel.change(model, %{}))
+    end
+
+    test "delete!/1" do
+      model = MyModel.new(test: "abc")
+
+      expect(TestRepoMock, :delete, fn schema -> {:ok, schema} end)
+      assert MyModel.delete!(model)
+
+      expect(TestRepoMock, :delete, fn changeset -> {:ok, changeset.data} end)
+      assert MyModel.delete!(MyModel.change(model, %{}))
+
+      expect(TestRepoMock, :delete, fn changeset ->
+        refute changeset.valid?
+        {:error, changeset}
+      end)
+
+      changeset = model |> MyModel.change(%{}) |> Map.put(:valid?, false)
+      assert_raise(Ecto.InvalidChangesetError, fn -> MyModel.delete!(changeset) end)
+    end
   end
 
   describe "access" do
@@ -279,7 +281,7 @@ defmodule OneModelTest do
     end
   end
 
-  describe "mutations" do
+  describe "changes" do
     setup [:setup_data]
 
     test "change/1 valid" do
@@ -627,17 +629,68 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
-               expr:
-                 {:fragment, [],
-                  [
-                    raw: "",
-                    expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                    raw: " REGEXP ",
-                    expr: {:^, [], [0]},
-                    raw: ""
-                  ]},
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:fragment, [],
+                     [
+                       raw: "",
+                       expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                       raw: " REGEXP ",
+                       expr: {:^, [], [1]},
+                       raw: ""
+                     ]}},
+                   {:raw, ""}
+                 ]
+               },
                op: :and,
-               params: [{"t", :any}]
+               params: [{false, :any}, {"t", :any}]
+             }
+    end
+
+    test "$nregex" do
+      query_fields = %{"test" => %{"$nregex" => "t"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {:^, [], [0]},
+                   raw: " OR ",
+                   expr: {
+                     :not,
+                     [],
+                     [
+                       {
+                         :fragment,
+                         [],
+                         [
+                           raw: "",
+                           expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                           raw: " REGEXP ",
+                           expr: {:^, [], [1]},
+                           raw: ""
+                         ]
+                       }
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [{false, :any}, {"t", :any}]
              }
     end
 
@@ -650,17 +703,55 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {:^, [], [0]},
+                   raw: " OR ",
+                   expr: {
+                     :==,
+                     [],
+                     [
+                       {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                       {:^, [], [1]}
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
                op: :and,
-               params: [{"test", :any}],
-               expr:
-                 {:fragment, [],
-                  [
-                    raw: "",
-                    expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                    raw: " = ",
-                    expr: {:^, [], [0]},
-                    raw: ""
-                  ]}
+               params: [{false, :any}, {"test", {0, :test}}]
+             }
+    end
+
+    test "$eq nil" do
+      query_fields = %{"test" => %{"$eq" => nil}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {:^, [], [0]},
+                   raw: " OR ",
+                   expr: {
+                     :is_nil,
+                     [],
+                     [{{:., [], [{:&, [], [0]}, :test]}, [], []}]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [false: :any]
              }
     end
 
@@ -673,17 +764,55 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:!=, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [1]}]}},
+                   {:raw, ""}
+                 ]
+               },
                op: :and,
-               params: [{"test", :any}],
-               expr:
-                 {:fragment, [],
-                  [
-                    raw: "",
-                    expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                    raw: " != ",
-                    expr: {:^, [], [0]},
-                    raw: ""
-                  ]}
+               params: [{false, :any}, {"test", {0, :test}}]
+             }
+    end
+
+    test "$ne nil" do
+      query_fields = %{"test" => %{"$ne" => nil}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {:^, [], [0]},
+                   raw: " OR ",
+                   expr: {
+                     :not,
+                     [],
+                     [
+                       {
+                         :is_nil,
+                         [],
+                         [{{:., [], [{:&, [], [0]}, :test]}, [], []}]
+                       }
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [false: :any]
              }
     end
 
@@ -696,17 +825,27 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:fragment, [],
+                     [
+                       raw: "",
+                       expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                       raw: " < ",
+                       expr: {:^, [], [1]},
+                       raw: ""
+                     ]}},
+                   {:raw, ""}
+                 ]
+               },
                op: :and,
-               params: [{"test", :any}],
-               expr:
-                 {:fragment, [],
-                  [
-                    raw: "",
-                    expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                    raw: " < ",
-                    expr: {:^, [], [0]},
-                    raw: ""
-                  ]}
+               params: [{false, :any}, {"test", :any}]
              }
     end
 
@@ -719,17 +858,27 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:fragment, [],
+                     [
+                       raw: "",
+                       expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                       raw: " <= ",
+                       expr: {:^, [], [1]},
+                       raw: ""
+                     ]}},
+                   {:raw, ""}
+                 ]
+               },
                op: :and,
-               params: [{"test", :any}],
-               expr:
-                 {:fragment, [],
-                  [
-                    raw: "",
-                    expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                    raw: " <= ",
-                    expr: {:^, [], [0]},
-                    raw: ""
-                  ]}
+               params: [{false, :any}, {"test", :any}]
              }
     end
 
@@ -742,17 +891,27 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:fragment, [],
+                     [
+                       raw: "",
+                       expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                       raw: " > ",
+                       expr: {:^, [], [1]},
+                       raw: ""
+                     ]}},
+                   {:raw, ""}
+                 ]
+               },
                op: :and,
-               params: [{"test", :any}],
-               expr:
-                 {:fragment, [],
-                  [
-                    raw: "",
-                    expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                    raw: " > ",
-                    expr: {:^, [], [0]},
-                    raw: ""
-                  ]}
+               params: [{false, :any}, {"test", :any}]
              }
     end
 
@@ -765,17 +924,27 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:fragment, [],
+                     [
+                       raw: "",
+                       expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                       raw: " >= ",
+                       expr: {:^, [], [1]},
+                       raw: ""
+                     ]}},
+                   {:raw, ""}
+                 ]
+               },
                op: :and,
-               params: [{"test", :any}],
-               expr:
-                 {:fragment, [],
-                  [
-                    raw: "",
-                    expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                    raw: " >= ",
-                    expr: {:^, [], [0]},
-                    raw: ""
-                  ]}
+               params: [{false, :any}, {"test", :any}]
              }
     end
 
@@ -788,16 +957,23 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
-               op: :and,
-               params: [{["t", "tt"], {:in, {0, :test}}}],
                expr: {
-                 :in,
+                 :fragment,
                  [],
                  [
-                   {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                   {:^, [], [0]}
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:in, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [1]}]}},
+                   {:raw, ""}
                  ]
-               }
+               },
+               op: :and,
+               params: [
+                 {false, :any},
+                 {["t", "tt"], {:in, {0, :test}}}
+               ]
              }
     end
 
@@ -810,22 +986,24 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
-               op: :and,
-               params: [{["t", "tt"], {:in, {0, :test}}}],
                expr: {
-                 :not,
+                 :fragment,
                  [],
                  [
-                   {
-                     :in,
-                     [],
-                     [
-                       {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                       {:^, [], [0]}
-                     ]
-                   }
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:not, [],
+                     [{:in, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [1]}]}]}},
+                   {:raw, ""}
                  ]
-               }
+               },
+               op: :and,
+               params: [
+                 {false, :any},
+                 {["t", "tt"], {:in, {0, :test}}}
+               ]
              }
     end
 
@@ -838,19 +1016,825 @@ defmodule OneModelTest do
       assert from.source == {"my_models", MyModelSchema}
 
       assert Map.take(where, ~w(expr op params)a) == %{
-               op: :and,
-               params: [{"test", :string}],
-               expr:
-                 {:like, [],
-                  [
-                    {:fragment, [],
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:like, [],
                      [
-                       raw: "LOWER(",
-                       expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
-                       raw: ")"
-                     ]},
-                    {:^, [], [0]}
-                  ]}
+                       {:fragment, [],
+                        [
+                          raw: "LOWER(",
+                          expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                          raw: ")"
+                        ]},
+                       {:^, [], [1]}
+                     ]}},
+                   {:raw, ""}
+                 ]
+               },
+               op: :and,
+               params: [{false, :any}, {"test", :string}]
+             }
+    end
+
+    test "value nil" do
+      query_fields = %{"test" => nil}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {:^, [], [0]},
+                   raw: " OR ",
+                   expr: {
+                     :is_nil,
+                     [],
+                     [{{:., [], [{:&, [], [0]}, :test]}, [], []}]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [false: :any]
+             }
+    end
+
+    test "multiple (and) query" do
+      query_fields = %{"test" => "foo", "name" => %{"$regex" => "bar"}}
+
+      %{from: from, wheres: [where1, where2]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where1, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {:^, [], [0]},
+                   raw: " OR ",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       {:raw, ""},
+                       {
+                         :expr,
+                         {{:., [], [{:&, [], [0]}, :name]}, [], []}
+                       },
+                       {:raw, " REGEXP "},
+                       {:expr, {:^, [], [1]}},
+                       {:raw, ""}
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [{false, :any}, {"bar", :any}]
+             }
+
+      assert Map.take(where2, ~w(expr op params)a) == %{
+               expr:
+                 {:fragment, [],
+                  [
+                    raw: "",
+                    expr: {:^, [], [0]},
+                    raw: " OR ",
+                    expr:
+                      {:like, [],
+                       [
+                         {:fragment, [],
+                          [
+                            raw: "LOWER(",
+                            expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                            raw: ")"
+                          ]},
+                         {:^, [], [1]}
+                       ]},
+                    raw: ""
+                  ]},
+               op: :and,
+               params: [{false, :any}, {"foo", :string}]
+             }
+    end
+
+    test "no query" do
+      assert OneModel.add_query_fields(MyModelSchema, %{}) == MyModelSchema
+    end
+  end
+
+  describe "add_query_fields/2 with field list" do
+    test "$regex 2" do
+      query_fields = %{"test,name" => %{"$regex" => "t"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       {:raw, ""},
+                       {:expr, {:^, [], [0]}},
+                       {:raw, " OR "},
+                       {:expr,
+                        {:fragment, [],
+                         [
+                           raw: "",
+                           expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                           raw: " REGEXP ",
+                           expr: {:^, [], [1]},
+                           raw: ""
+                         ]}},
+                       {:raw, ""}
+                     ]
+                   },
+                   raw: " OR ",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       raw: "",
+                       expr: {
+                         {:., [], [{:&, [], [0]}, :name]},
+                         [],
+                         []
+                       },
+                       raw: " REGEXP ",
+                       expr: {:^, [], [2]},
+                       raw: ""
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [{false, :any}, {"t", :any}, {"t", :any}]
+             }
+    end
+
+    test "$regex 3" do
+      query_fields = %{"test,name,other" => %{"$regex" => "t"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr:
+                 {:fragment, [],
+                  [
+                    raw: "",
+                    expr:
+                      {:fragment, [],
+                       [
+                         raw: "",
+                         expr:
+                           {:fragment, [],
+                            [
+                              raw: "",
+                              expr: {:^, [], [0]},
+                              raw: " OR ",
+                              expr:
+                                {:fragment, [],
+                                 [
+                                   raw: "",
+                                   expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                                   raw: " REGEXP ",
+                                   expr: {:^, [], [1]},
+                                   raw: ""
+                                 ]},
+                              raw: ""
+                            ]},
+                         raw: " OR ",
+                         expr:
+                           {:fragment, [],
+                            [
+                              raw: "",
+                              expr: {{:., [], [{:&, [], [0]}, :name]}, [], []},
+                              raw: " REGEXP ",
+                              expr: {:^, [], [2]},
+                              raw: ""
+                            ]},
+                         raw: ""
+                       ]},
+                    raw: " OR ",
+                    expr:
+                      {:fragment, [],
+                       [
+                         raw: "",
+                         expr: {{:., [], [{:&, [], [0]}, :other]}, [], []},
+                         raw: " REGEXP ",
+                         expr: {:^, [], [3]},
+                         raw: ""
+                       ]},
+                    raw: ""
+                  ]},
+               op: :and,
+               params: [{false, :any}, {"t", :any}, {"t", :any}, {"t", :any}]
+             }
+    end
+
+    test "$nregex 2" do
+      query_fields = %{"test,name" => %{"$nregex" => "t"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       raw: "",
+                       expr: {:^, [], [0]},
+                       raw: " OR ",
+                       expr: {
+                         :not,
+                         [],
+                         [
+                           {
+                             :fragment,
+                             [],
+                             [
+                               raw: "",
+                               expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                               raw: " REGEXP ",
+                               expr: {:^, [], [1]},
+                               raw: ""
+                             ]
+                           }
+                         ]
+                       },
+                       raw: ""
+                     ]
+                   },
+                   raw: " OR ",
+                   expr: {
+                     :not,
+                     [],
+                     [
+                       {
+                         :fragment,
+                         [],
+                         [
+                           raw: "",
+                           expr: {{:., [], [{:&, [], [0]}, :name]}, [], []},
+                           raw: " REGEXP ",
+                           expr: {:^, [], [2]},
+                           raw: ""
+                         ]
+                       }
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [{false, :any}, {"t", :any}, {"t", :any}]
+             }
+    end
+
+    test "$eq 2" do
+      query_fields = %{"test,name" => %{"$eq" => "test"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr:
+                 {:fragment, [],
+                  [
+                    raw: "",
+                    expr:
+                      {:fragment, [],
+                       [
+                         raw: "",
+                         expr: {:^, [], [0]},
+                         raw: " OR ",
+                         expr:
+                           {:==, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [1]}]},
+                         raw: ""
+                       ]},
+                    raw: " OR ",
+                    expr: {:==, [], [{{:., [], [{:&, [], [0]}, :name]}, [], []}, {:^, [], [2]}]},
+                    raw: ""
+                  ]},
+               op: :and,
+               params: [{false, :any}, {"test", {0, :test}}, {"test", {0, :name}}]
+             }
+    end
+
+    test "$ne 2" do
+      query_fields = %{"test,name" => %{"$ne" => "test"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       raw: "",
+                       expr: {:^, [], [0]},
+                       raw: " OR ",
+                       expr: {
+                         :!=,
+                         [],
+                         [
+                           {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                           {:^, [], [1]}
+                         ]
+                       },
+                       raw: ""
+                     ]
+                   },
+                   raw: " OR ",
+                   expr: {
+                     :!=,
+                     [],
+                     [
+                       {{:., [], [{:&, [], [0]}, :name]}, [], []},
+                       {:^, [], [2]}
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [
+                 {false, :any},
+                 {"test", {0, :test}},
+                 {"test", {0, :name}}
+               ]
+             }
+    end
+
+    test "$lt 3" do
+      query_fields = %{"test,name,other" => %{"$lt" => "test"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr:
+                 {:fragment, [],
+                  [
+                    raw: "",
+                    expr:
+                      {:fragment, [],
+                       [
+                         raw: "",
+                         expr:
+                           {:fragment, [],
+                            [
+                              raw: "",
+                              expr: {:^, [], [0]},
+                              raw: " OR ",
+                              expr:
+                                {:fragment, [],
+                                 [
+                                   raw: "",
+                                   expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                                   raw: " < ",
+                                   expr: {:^, [], [1]},
+                                   raw: ""
+                                 ]},
+                              raw: ""
+                            ]},
+                         raw: " OR ",
+                         expr:
+                           {:fragment, [],
+                            [
+                              raw: "",
+                              expr: {{:., [], [{:&, [], [0]}, :name]}, [], []},
+                              raw: " < ",
+                              expr: {:^, [], [2]},
+                              raw: ""
+                            ]},
+                         raw: ""
+                       ]},
+                    raw: " OR ",
+                    expr:
+                      {:fragment, [],
+                       [
+                         raw: "",
+                         expr: {{:., [], [{:&, [], [0]}, :other]}, [], []},
+                         raw: " < ",
+                         expr: {:^, [], [3]},
+                         raw: ""
+                       ]},
+                    raw: ""
+                  ]},
+               op: :and,
+               params: [{false, :any}, {"test", :any}, {"test", :any}, {"test", :any}]
+             }
+    end
+
+    test "$lte 2" do
+      query_fields = %{"test,name" => %{"$lte" => "test"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       {:raw, ""},
+                       {:expr, {:^, [], [0]}},
+                       {:raw, " OR "},
+                       {:expr,
+                        {:fragment, [],
+                         [
+                           raw: "",
+                           expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                           raw: " <= ",
+                           expr: {:^, [], [1]},
+                           raw: ""
+                         ]}},
+                       {:raw, ""}
+                     ]
+                   },
+                   raw: " OR ",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       raw: "",
+                       expr: {
+                         {:., [], [{:&, [], [0]}, :name]},
+                         [],
+                         []
+                       },
+                       raw: " <= ",
+                       expr: {:^, [], [2]},
+                       raw: ""
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [
+                 {false, :any},
+                 {"test", :any},
+                 {"test", :any}
+               ]
+             }
+    end
+
+    test "$gt 2" do
+      query_fields = %{"test,name" => %{"$gt" => "test"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       {:raw, ""},
+                       {:expr, {:^, [], [0]}},
+                       {:raw, " OR "},
+                       {:expr,
+                        {:fragment, [],
+                         [
+                           raw: "",
+                           expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                           raw: " > ",
+                           expr: {:^, [], [1]},
+                           raw: ""
+                         ]}},
+                       {:raw, ""}
+                     ]
+                   },
+                   raw: " OR ",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       raw: "",
+                       expr: {
+                         {:., [], [{:&, [], [0]}, :name]},
+                         [],
+                         []
+                       },
+                       raw: " > ",
+                       expr: {:^, [], [2]},
+                       raw: ""
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [
+                 {false, :any},
+                 {"test", :any},
+                 {"test", :any}
+               ]
+             }
+    end
+
+    test "$gte 3" do
+      query_fields = %{"test,name,other" => %{"$gte" => "test"}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       {:raw, ""},
+                       {:expr,
+                        {:fragment, [],
+                         [
+                           raw: "",
+                           expr: {:^, [], [0]},
+                           raw: " OR ",
+                           expr:
+                             {:fragment, [],
+                              [
+                                raw: "",
+                                expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                                raw: " >= ",
+                                expr: {:^, [], [1]},
+                                raw: ""
+                              ]},
+                           raw: ""
+                         ]}},
+                       {:raw, " OR "},
+                       {:expr,
+                        {:fragment, [],
+                         [
+                           raw: "",
+                           expr: {{:., [], [{:&, [], [0]}, :name]}, [], []},
+                           raw: " >= ",
+                           expr: {:^, [], [2]},
+                           raw: ""
+                         ]}},
+                       {:raw, ""}
+                     ]
+                   },
+                   raw: " OR ",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       raw: "",
+                       expr: {
+                         {:., [], [{:&, [], [0]}, :other]},
+                         [],
+                         []
+                       },
+                       raw: " >= ",
+                       expr: {:^, [], [3]},
+                       raw: ""
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [
+                 {false, :any},
+                 {"test", :any},
+                 {"test", :any},
+                 {"test", :any}
+               ]
+             }
+    end
+
+    test "$in 2" do
+      query_fields = %{"test,name" => %{"$in" => ["t", "tt"]}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       {:raw, ""},
+                       {:expr, {:^, [], [0]}},
+                       {:raw, " OR "},
+                       {:expr,
+                        {:in, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [1]}]}},
+                       {:raw, ""}
+                     ]
+                   },
+                   raw: " OR ",
+                   expr: {
+                     :in,
+                     [],
+                     [
+                       {{:., [], [{:&, [], [0]}, :name]}, [], []},
+                       {:^, [], [2]}
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [
+                 {false, :any},
+                 {["t", "tt"], {:in, {0, :test}}},
+                 {["t", "tt"], {:in, {0, :name}}}
+               ]
+             }
+    end
+
+    test "$nin" do
+      query_fields = %{"test" => %{"$nin" => ["t", "tt"]}}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   {:raw, ""},
+                   {:expr, {:^, [], [0]}},
+                   {:raw, " OR "},
+                   {:expr,
+                    {:not, [],
+                     [{:in, [], [{{:., [], [{:&, [], [0]}, :test]}, [], []}, {:^, [], [1]}]}]}},
+                   {:raw, ""}
+                 ]
+               },
+               op: :and,
+               params: [
+                 {false, :any},
+                 {["t", "tt"], {:in, {0, :test}}}
+               ]
+             }
+    end
+
+    test "value 3" do
+      query_fields = %{"test,name,other" => "test"}
+
+      %{from: from, wheres: [where]} =
+        Map.from_struct(OneModel.add_query_fields(MyModelSchema, %{query: query_fields}))
+
+      assert from.source == {"my_models", MyModelSchema}
+
+      assert Map.take(where, ~w(expr op params)a) == %{
+               expr: {
+                 :fragment,
+                 [],
+                 [
+                   raw: "",
+                   expr: {
+                     :fragment,
+                     [],
+                     [
+                       {:raw, ""},
+                       {:expr,
+                        {:fragment, [],
+                         [
+                           raw: "",
+                           expr: {:^, [], [0]},
+                           raw: " OR ",
+                           expr:
+                             {:like, [],
+                              [
+                                {:fragment, [],
+                                 [
+                                   raw: "LOWER(",
+                                   expr: {{:., [], [{:&, [], [0]}, :test]}, [], []},
+                                   raw: ")"
+                                 ]},
+                                {:^, [], [1]}
+                              ]},
+                           raw: ""
+                         ]}},
+                       {:raw, " OR "},
+                       {:expr,
+                        {:like, [],
+                         [
+                           {:fragment, [],
+                            [
+                              raw: "LOWER(",
+                              expr: {{:., [], [{:&, [], [0]}, :name]}, [], []},
+                              raw: ")"
+                            ]},
+                           {:^, [], [2]}
+                         ]}},
+                       {:raw, ""}
+                     ]
+                   },
+                   raw: " OR ",
+                   expr: {
+                     :like,
+                     [],
+                     [
+                       {
+                         :fragment,
+                         [],
+                         [
+                           raw: "LOWER(",
+                           expr: {
+                             {:., [], [{:&, [], [0]}, :other]},
+                             [],
+                             []
+                           },
+                           raw: ")"
+                         ]
+                       },
+                       {:^, [], [3]}
+                     ]
+                   },
+                   raw: ""
+                 ]
+               },
+               op: :and,
+               params: [
+                 {false, :any},
+                 {"test", :string},
+                 {"test", :string},
+                 {"test", :string}
+               ]
              }
     end
 
@@ -872,6 +1856,26 @@ defmodule OneModelTest do
 
     test "binary key, invalid json payload" do
       params = %{"query" => "{" <> Jason.encode!(%{"test" => %{"$gt" => "test"}})}
+
+      assert capture_log(fn ->
+               assert OneModel.query_params(params) == %{}
+             end) =~ "error: {:error, %Jason.DecodeError"
+    end
+  end
+
+  describe "query_params/1 2 fields" do
+    test "binary key 2" do
+      params = %{"query" => %{"test,name" => %{"$gt" => "test"}}}
+      assert OneModel.query_params(params) == %{query: %{"test,name" => %{"$gt" => "test"}}}
+    end
+
+    test "binary key, json payload, 3" do
+      params = %{"query" => Jason.encode!(%{"test,name,other" => %{"$gt" => "test"}})}
+      assert OneModel.query_params(params) == %{query: %{"test,name,other" => %{"$gt" => "test"}}}
+    end
+
+    test "binary key, invalid json payload 2" do
+      params = %{"query" => "{" <> Jason.encode!(%{"test,name" => %{"$gt" => "test"}})}
 
       assert capture_log(fn ->
                assert OneModel.query_params(params) == %{}
