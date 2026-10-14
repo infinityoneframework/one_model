@@ -9,8 +9,6 @@ defmodule OneModelTest do
   alias OneModel.TestRepoMock
 
   require Ecto.Query, as: Query
-  require Logger
-  require Integer
 
   doctest OneModel
 
@@ -1880,6 +1878,21 @@ defmodule OneModelTest do
       assert capture_log(fn ->
                assert OneModel.query_params(params) == %{}
              end) =~ "error: {:error, %Jason.DecodeError"
+    end
+  end
+
+  describe "query $and" do
+    test "binary key 2" do
+      params = %{
+        "query" => %{
+          "$and" => [
+            %{"test,name" => %{"$gt" => "test"}},
+
+          ]
+        }
+      }
+
+      assert OneModel.query_params(params) == %{query: %{"$and" => [%{"test,name" => %{"$gt" => "test"}}]}}
     end
   end
 end

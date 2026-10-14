@@ -156,8 +156,7 @@ defmodule OneModel do
       """
       @spec list() :: [t]
       def list() do
-        @schema
-        |> @repo.all()
+        repo().all(@schema)
       end
 
       @doc """
@@ -176,13 +175,14 @@ defmodule OneModel do
       """
       @spec list(keyword()) :: [t] | [term]
       def list(opts) do
+        q =
         @schema
         |> do_order(opts[:order_by])
         |> do_preload(opts[:preload])
         |> do_select(opts[:select])
         |> do_select_map(opts[:select_map])
         |> do_limit(opts[:limit])
-        |> @repo.all()
+        repo().all(q)
       end
 
       @doc """
@@ -218,10 +218,11 @@ defmodule OneModel do
       """
       @spec list_by(keyword()) :: list
       def list_by(opts) do
-        opts
-        |> Keyword.put_new(:order_by, :inserted_at)
-        |> list_by_query()
-        |> @repo.all()
+        repo().all(
+          opts
+          |> Keyword.put_new(:order_by, :inserted_at)
+          |> list_by_query()
+        )
       end
 
       @doc """
@@ -280,28 +281,28 @@ defmodule OneModel do
       """
       @spec get(id(), keyword()) :: any
       def get(id, opts) do
-        opts |> Keyword.put(:id, id) |> get_by_query() |> @repo.one()
+        repo().one(opts |> Keyword.put(:id, id) |> get_by_query())
       end
 
       @spec get(id()) :: t() | nil
-      def get(id), do: @repo.get(@schema, id)
+      def get(id), do: repo().get(@schema, id)
 
       @spec get!(id(), keyword()) :: any | no_return
       def get!(id, opts) do
-        opts |> Keyword.put(:id, id) |> get_by_query() |> @repo.one!()
+        repo().one!(opts |> Keyword.put(:id, id) |> get_by_query())
       end
 
       @spec get!(id()) :: t() | no_return
-      def get!(id), do: @repo.get!(@schema, id)
+      def get!(id), do: repo().get!(@schema, id)
 
       @spec get_by(keyword()) :: any
       def get_by(opts) do
-        opts |> get_by_query() |> @repo.one()
+        repo().one(opts |> get_by_query())
       end
 
       @spec get_by!(keyword()) :: any | no_return
       def get_by!(opts) do
-        opts |> get_by_query() |> @repo.one!()
+        repo().one!(opts |> get_by_query())
       end
 
       def get_by_query(opts) do
@@ -326,11 +327,11 @@ defmodule OneModel do
               | {:error, Ecto.Changeset.t()}
 
       def create(%Ecto.Changeset{} = changeset) do
-        @repo.insert(changeset)
+        repo().insert(changeset)
       end
 
       def create(%@schema{} = schema) do
-        schema |> change() |> @repo.insert()
+        repo().insert(schema |> change())
       end
 
       def create(%{} = attrs) do
@@ -354,7 +355,7 @@ defmodule OneModel do
               {:ok, t()}
               | {:error, Ecto.Changeset.t()}
       def update(%Ecto.Changeset{} = changeset) do
-        @repo.update(changeset)
+        repo().update(changeset)
       end
 
       @spec update(t(), map()) ::
@@ -395,7 +396,7 @@ defmodule OneModel do
       Delete the #{@schema} given by an `Ecto.Changeset`.
       """
       def delete(%Ecto.Changeset{} = changeset) do
-        @repo.delete(changeset)
+        repo().delete(changeset)
       end
 
       def delete(id), do: id |> get() |> change() |> delete()
@@ -418,35 +419,39 @@ defmodule OneModel do
       Delete all #{@schema}'s.
       """
       @spec delete_all() :: term
-      def delete_all, do: @repo.delete_all(@schema)
+      def delete_all, do: repo().delete_all(@schema)
 
       @doc """
       Get the first #{@schema} ordered by creation date
       """
       @spec first() :: t() | nil
-      def first,
-        do:
+      def first do
+        q =
           @schema
           |> order_by(asc: :inserted_at)
           |> first()
-          |> @repo.one()
+
+          repo().one(q)
+        end
+
 
       @doc """
       Get the last #{@schema} ordered by creation date
       """
       @spec last() :: t() | nil
-      def last,
-        do:
+      def last do
+          q =
           @schema
           |> order_by(asc: :inserted_at)
           |> last()
-          |> @repo.one()
+       repo().one(q)
+          end
 
       @doc """
       Get the number of records in the #{@schema} schema.
       """
       @spec count() :: integer
-      def count, do: @repo.one(from(s in @schema, select: count(s.id)))
+      def count, do: repo().one(from(s in @schema, select: count(s.id)))
 
       @doc """
       Count the number of records for the #{@schema} schema.
@@ -459,26 +464,27 @@ defmodule OneModel do
       """
       @spec count_by(keyword() | map()) :: integer
       def count_by(clauses) do
+        q =
         clauses
         |> Enum.reduce(@schema, fn {k, v}, query ->
           where(query, [b], field(b, ^k) == ^v)
         end)
         |> select([b], count(b.id))
-        |> @repo.one()
+        repo().one(q)
       end
 
       @doc """
       Preload a #{@schema}.
       """
       @spec preload_schema(t() | [t()], atom | list()) :: t() | [t()]
-      def preload_schema(schema, preload), do: @repo.preload(schema, preload)
+      def preload_schema(schema, preload), do: repo().preload(schema, preload)
 
       @doc """
       Fetch a list given a query.
       """
       @spec all(Ecto.Query.t()) :: [t()]
       def all(query) do
-        @repo.all(query)
+        repo().all(query)
       end
 
       @doc """
@@ -486,7 +492,7 @@ defmodule OneModel do
       """
       @spec one(Ecto.Query.t()) :: t() | nil
       def one(query) do
-        @repo.one(query)
+        repo().one(query)
       end
 
       @doc """
@@ -542,6 +548,10 @@ defmodule OneModel do
 
       def select_callback(query, _query_fields, _defaults) do
         query
+      end
+
+      defp repo do
+        Application.get_env(:one_model, :repo, @repo)
       end
 
       defoverridable delete: 1,
