@@ -1,5 +1,5 @@
 defmodule OneModel.MyAssoc do
   use OneModel,
     schema: OneModel.Schema.MyAssoc,
-    repo: OneModel.TestRepoMock
+    repo: OneModel.TestRepo
 end

@@ -1,7 +1,7 @@
 defmodule OneModel.User do
   use OneModel,
     schema: OneModel.Schema.User,
-    repo: OneModel.TestRepoMock,
+    repo: OneModel.TestRepo,
     default_fields: ~w(id name username)a,
     default_assoc_fields: [
       :my_models,

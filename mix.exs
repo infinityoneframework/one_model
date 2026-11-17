@@ -4,18 +4,12 @@ defmodule OneModel.MixProject do
   def project do
     [
       app: :one_model,
-      version: "0.5.0",
-      elixir: "~> 1.11",
+      version: "0.6.0",
+      elixir: "~> 1.20",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
       test_paths: ["test"],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.post": :test,
-        "coveralls.html": :test
-      ],
       deps: deps()
     ]
   end
@@ -24,6 +18,17 @@ defmodule OneModel.MixProject do
   def application do
     [
       extra_applications: [:logger]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -37,7 +42,7 @@ defmodule OneModel.MixProject do
       {:ecto, "~> 3.3"},
       {:ecto_sql, "~> 3.3", only: :test},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:mox, "~> 1.0", only: :test},
+      {:mox, "~> 1.3", only: :test},
       {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.10", only: :test},
       {:postgrex, "~> 0.0", only: :test}
