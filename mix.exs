@@ -4,8 +4,8 @@ defmodule OneModel.MixProject do
   def project do
     [
       app: :one_model,
-      version: "0.5.0",
-      elixir: "~> 1.11",
+      version: "0.6.0",
+      elixir: "~> 1.20",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       test_coverage: [tool: ExCoveralls],
@@ -22,7 +22,14 @@ defmodule OneModel.MixProject do
   end
 
   def cli do
-    [preferred_envs: [coveralls: :test, "coveralls.detail": :test, "coveralls.post": :test, "coveralls.html": :test]]
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
+    ]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/fixtures"]
