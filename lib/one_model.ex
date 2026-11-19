@@ -95,6 +95,7 @@ defmodule OneModel do
       @default_fields opts[:default_fields] || @schema.__schema__(:fields)
       @default_assoc_fields opts[:default_assoc_fields] || @schema.__schema__(:associations)
       @default_limit opts[:default_limit] || 50
+      @default_order_by opts[:default_order_by] || :inserted_at
 
       @type id :: String.t()
       if opts[:t] do
@@ -176,12 +177,13 @@ defmodule OneModel do
       @spec list(keyword()) :: [t] | [term]
       def list(opts) do
         q =
-        @schema
-        |> do_order(opts[:order_by])
-        |> do_preload(opts[:preload])
-        |> do_select(opts[:select])
-        |> do_select_map(opts[:select_map])
-        |> do_limit(opts[:limit])
+          @schema
+          |> do_order(opts[:order_by])
+          |> do_preload(opts[:preload])
+          |> do_select(opts[:select])
+          |> do_select_map(opts[:select_map])
+          |> do_limit(opts[:limit])
+
         repo().all(q)
       end
 
@@ -220,7 +222,7 @@ defmodule OneModel do
       def list_by(opts) do
         repo().all(
           opts
-          |> Keyword.put_new(:order_by, :inserted_at)
+          |> Keyword.put_new(:order_by, @default_order_by)
           |> list_by_query()
         )
       end
@@ -428,24 +430,24 @@ defmodule OneModel do
       def first do
         q =
           @schema
-          |> order_by(asc: :inserted_at)
+          |> order_by(asc: @default_order_by)
           |> first()
 
-          repo().one(q)
-        end
-
+        repo().one(q)
+      end
 
       @doc """
       Get the last #{@schema} ordered by creation date
       """
       @spec last() :: t() | nil
       def last do
-          q =
+        q =
           @schema
-          |> order_by(asc: :inserted_at)
+          |> order_by(asc: @default_order_by)
           |> last()
-       repo().one(q)
-          end
+
+        repo().one(q)
+      end
 
       @doc """
       Get the number of records in the #{@schema} schema.
@@ -465,11 +467,12 @@ defmodule OneModel do
       @spec count_by(keyword() | map()) :: integer
       def count_by(clauses) do
         q =
-        clauses
-        |> Enum.reduce(@schema, fn {k, v}, query ->
-          where(query, [b], field(b, ^k) == ^v)
-        end)
-        |> select([b], count(b.id))
+          clauses
+          |> Enum.reduce(@schema, fn {k, v}, query ->
+            where(query, [b], field(b, ^k) == ^v)
+          end)
+          |> select([b], count(b.id))
+
         repo().one(q)
       end
 
